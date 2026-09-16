@@ -30,11 +30,12 @@ OUT = os.path.join(OUT_DIR, "school_year_panel.csv")
 # Preferred column name first; the first one present in a file wins.
 FIELDS = {
     "province":  ["Province"],
-    "school":    ["Official_Institution_Name", "Institution_Name", "InstitutionName"],
-    "status":    ["Status"],
+    "school":    ["Official_Institution_Name", "Institution_Name", "InstitutionName",
+                  "Institution", "LURITS_Name"],
+    "status":    ["Status", "DoE_Status", "LURITS_Status"],
     "sector":    ["Sector"],
     "type":      ["Type_DoE", "Type"],
-    "phase":     ["Phase_PED", "Phase"],
+    "phase":     ["Phase_PED", "Phase_DoE", "Phase"],
     "district":  ["EIDistrict", "EI_District"],
     "circuit":   ["EICircuit"],
     "quintile":  ["Quintile"],
