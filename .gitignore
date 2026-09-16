@@ -1,10 +1,12 @@
 # Leftover backup from repo history fix — not part of this project
 .git-backup-old-dataquest-project/
 
-# National EMIS masterlists: 108MB of re-downloadable source data covering all 9
-# provinces. The pilot is Western Cape only, so these are excluded to keep the repo
-# clonable. See datasets/INDEX.md for how to re-fetch them.
-datasets/01_DBE_EMIS/masterlists/NATordinary_*.xlsx
+# Raw source data: several hundred MB of government spreadsheets and PDFs covering
+# all nine provinces. Every file here is re-downloadable with no login, so we keep the
+# fetch scripts in src/ under version control instead of the payload. Anyone can run
+# them to rebuild this folder exactly. The cleaned tables in datasets/processed/ ARE
+# committed, because those are the project's own work.
+datasets/raw/
 
 # Unrelated legacy files from a different DataQuest submission (SAS credit-risk project)
 # left in this folder from before — excluded so they don't get committed here by accident.
