@@ -1,5 +1,16 @@
 # SNAP Survey of Ordinary Schools
 
+## 🔄 Scope narrowed (2026-09-16, from teammate's data-collection branch)
+This dataset was originally needed for BOTH teacher counts (for
+teacher:learner ratio) AND possible per-grade enrollment. Teacher counts
+are now covered by `datasets/01_DBE_EMIS/masterlists/` (real
+`Educators{year}` / `Learners{year}` columns per school, no registration
+needed — see `datasets/INDEX.md`). So SNAP is now needed for exactly ONE
+thing: **per-grade (Grade 10/11/12-specific) enrollment counts**, which is
+the single remaining blocker for a fully validated dropout-rate label
+(see `docs/plan_v1.txt` Section 2). Everything below still applies to
+getting that one piece.
+
 ## ⚠️ Nothing downloaded here — this one requires a manual step from you
 
 I checked directly: the SNAP Survey (1997-2016, v1.6) on DataFirst is explicitly marked as a **"Licensed dataset, accessible under conditions"** — not open-download like the schools masterlist. There is no public API or direct file link I can pull from automatically.

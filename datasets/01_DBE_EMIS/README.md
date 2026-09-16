@@ -1,5 +1,21 @@
 # DBE EMIS - Schools Masterlist / Identity Data
 
+## 🔄 CORRECTION (2026-09-16, from teammate's data-collection branch)
+Everything below the line "What's still missing" originally said DBE's EMIS
+Downloads page only hosts ECD (early childhood) data and that the national
+masterlist requires DataFirst registration. **That was wrong** — a teammate
+found the real ordinary-schools masterlist section on that same page
+(`education.gov.za/Programmes/EMIS/EMISDownloads.aspx`), no login required,
+and pulled 26 quarterly Western Cape files (2013-2025) into
+`01_DBE_EMIS/masterlists/`. Those files ALSO include `Educators{year}` per
+school, so teacher:learner ratio — previously this project's biggest
+pending item — is now computable directly, no SNAP registration needed.
+**See `datasets/INDEX.md` for the full, verified writeup** (exact columns,
+join rates against our other files, data-quality caveats). The rest of this
+file is kept as-is below for the original WCG ArcGIS layer, which is still
+useful (it's live/weekly-updated) even though the masterlists now cover
+more ground.
+
 ## ✅ What's actually in this folder (downloaded 2026-09-16)
 
 ### `WesternCape_Public_Ordinary_Schools_2025.csv` — 1,480 schools

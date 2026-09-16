@@ -73,13 +73,40 @@ f) datasets/06_Provincial_Data/SA_Education_District_Boundaries_Attributes.csv
    district names slightly differently, e.g. "METRO EAST" vs a
    formal EIDISTRICT name).
 
-g) NOT YET OBTAINED (gated, needs free DataFirst registration):
-   - National EMIS Schools Masterlist (all provinces)
-   - SNAP Survey (educator counts, and POSSIBLY per-grade learner
-     counts — needs verification once accessed)
-   - NSC microdata 2010-2016 (subject-level detail)
-   See datasets/03_SNAP_Survey/README.md and
-   datasets/01_DBE_EMIS/README.md for exact links.
+g) datasets/01_DBE_EMIS/masterlists/*.xlsx — MAJOR UPDATE (merged
+   from teammate's data-collection branch, 2026-09-16)
+   26 quarterly WC EMIS masterlist files (2013-2025), pulled
+   directly from education.gov.za/Programmes/EMIS/EMISDownloads.aspx
+   — NO LOGIN REQUIRED. This corrects an earlier wrong claim in
+   this doc (and in datasets/01_DBE_EMIS/README.md) that this page
+   only hosts ECD data — it doesn't, the ordinary-schools masterlist
+   is there too, just under a different section than first checked.
+   Per school, per year: EMIS, name, sector, phase, district,
+   circuit, quintile, no-fee flag, explicit URBAN_RURAL flag, GPS,
+   OldNATEMIS/NewNATEMIS (school renumbering/merge tracking), and
+   crucially: Learners{year} AND Educators{year}.
+   -> TEACHER:LEARNER RATIO IS NOW COMPUTABLE DIRECTLY, NO SNAP
+      NEEDED. This closes off what was previously this plan's
+      single biggest "pending" item. Verified populated for 98.7%
+      of WC schools in 2025 (datasets/INDEX.md).
+   -> Also gives a real multi-year TOTAL enrollment trend per
+      school back to 2007 (not grade-level, see Section 2).
+   Known data-quality issue: WC_2022Q2.xlsx is mislabeled — its
+   actual DataYear column says 2025. Trust DataYear, not filename.
+   2014 is the only calendar year with no available quarter.
+   Verified EMIS join rates against our other files: ArcGIS CSV
+   100%, No-Fee PDF 99%, NSC PDF 99% (datasets/INDEX.md has the
+   full table).
+
+h) STILL NOT OBTAINED (gated, needs free DataFirst registration):
+   - SNAP Survey microdata — now needed ONLY for per-grade
+     (Grade 10/11/12-specific) enrollment counts, since teacher
+     counts and total enrollment are covered by (g) above.
+   - NSC microdata 2010-2016 (subject-level detail; the NSC PDF
+     report in Section 1d already covers 2022-2024 at school level
+     without registration, and 2012-2021 PDF reports are also
+     downloadable without registration per datasets/INDEX.md).
+   See datasets/03_SNAP_Survey/README.md for exact links.
 
 
 2. THE CORE DATA CHALLENGE — read this before building anything
@@ -97,18 +124,33 @@ CONFIRMED (2026-09-16): the No Fee Schools PDFs do NOT have
 grade-level breakdown — just a single total learner count per
 school (Section 1c). That candidate is closed off.
 
-The ONLY remaining candidate for true Grade 10/11/12 enrollment
-counts is the SNAP Survey (Section 1g) — gated behind DataFirst
-registration, grade-level granularity still unverified until
-someone on the team registers and opens it.
+UPDATE (2026-09-16, teammate's data-collection branch): the EMIS
+masterlists (Section 1g) solve teacher counts and total-enrollment
+trend, but ALSO do not break learners down by grade — same
+limitation as the No Fee Schools PDFs. So the ONLY remaining
+candidate for true Grade 10/11/12 enrollment counts is still the
+SNAP Survey (Section 1h) — gated behind DataFirst registration,
+grade-level granularity still unverified until someone registers
+and opens it. This is now the single open blocker for Track A —
+everything else Track A needs (identity, quintile, teacher ratio,
+enrollment trend, pass-rate trend, matric cohort size) is real
+data already in hand.
 
 One partial substitute we DID confirm: the NSC report (Section
 1d) gives real "Total Wrote" (Grade 12 exam candidate) counts per
 school per year for 2022-2024. That's the NUMERATOR side of the
-dropout ratio (how many reached matric-writing stage). We still
-lack the DENOMINATOR (how many started Grade 10 two years
-earlier) without SNAP or equivalent grade-level data. So: half
-of Track A's label is now real data, half is still blocked.
+dropout ratio (how many reached matric-writing stage). The
+DENOMINATOR (how many started Grade 10 two years earlier) is still
+blocked without SNAP. Fallback if SNAP doesn't arrive in time
+(proposed in datasets/INDEX.md): compare a school's Total Wrote
+in year Y against that SAME school's TOTAL enrollment (from the
+masterlists, Section 1g) in year Y-2. Weaker — conflates intake
+changes with dropout, and only works for schools that are
+SECONDARY SCHOOL phase — but buildable entirely from data already
+in hand, no registration needed. This is a real, if imperfect,
+path to an actual trained regression (Track A) even if SNAP never
+comes through — reassess Track A's feasibility against this
+fallback, not just against the blocked true label.
 
 Because of this, this plan runs TWO TRACKS in parallel:
 
@@ -159,20 +201,32 @@ regression we don't have the label data for yet.
                              matric despite not meeting promotion
                              requirements; confirmed available,
                              strong at-risk proxy
+  - teacher_learner_ratio <- Educators{year} / Learners{year}, from
+                             the EMIS masterlists (Section 1g) —
+                             CONFIRMED AVAILABLE NOW, no longer
+                             needs SNAP. Real, direct feature, not
+                             a proxy.
+  - enrollment_trend      <- total Learners{year} year-over-year,
+                             from the EMIS masterlists across their
+                             available quarters back to 2007 — a
+                             real multi-year trend (whole-school,
+                             not grade-specific, but far less noisy
+                             than the 2-point No Fee Schools delta
+                             this line used to describe)
+  - urban_rural           <- explicit Urban_Rural column from the
+                             EMIS masterlists — replaces the
+                             distance-based remoteness_proxy below
+                             as the primary signal; keep the proxy
+                             only as a cross-check
   - remoteness_proxy      <- engineered from LATITUDE/LONGITUDE:
                              distance to Cape Town CBD (or nearest
-                             major town centroid) as a rural/
-                             urban stand-in, since no explicit
-                             rural/urban column exists in our data
+                             major town centroid), now a secondary/
+                             cross-check signal since urban_rural
+                             above is a real confirmed column
   - district_area_sqkm    <- from SA_Education_District_Boundaries,
                              joined on district name (larger area
                              + same school count roughly implies
                              more rural/dispersed)
-  - enrollment_delta      <- ONLY if the No Fee Schools PDFs turn
-                             out to have per-grade or per-school
-                             total learner counts for both 2023
-                             and 2025 (2-point trend, noisy, but
-                             usable as a directional signal)
 
 3.2 How the score is built (be explicit about this to judges)
   This is a transparent WEIGHTED INDEX, not a black-box trained
@@ -223,29 +277,32 @@ approach, restated here against our real files:
     No Fee Schools 2023/2025: DONE, needs extraction (Section 1c).
     NSC pass rates 2024 (+3yr history): DONE, needs extraction
     (Section 1d).
-    SNAP survey (educator counts, possible grade-level learner
-    counts): PENDING DataFirst registration (Section 1g).
-    National EMIS masterlist: PENDING DataFirst registration, not
-    required for a WC-only pilot (Section 1a already covers WC).
+    EMIS masterlist panel (identity, quintile, teacher counts,
+    total enrollment, 2013-2025): DONE (Section 1g) — no
+    registration was needed, corrects earlier assumption.
+    SNAP survey (per-grade learner counts ONLY — everything else
+    it would have provided is now covered by the masterlists):
+    PENDING DataFirst registration (Section 1h).
 
   STEP 2 - Clean and join
-    Join key: EMIS number.
-    Join WesternCape_Public_Ordinary_Schools_2025.csv (identity,
-    quintile) + extracted No Fee Schools table (learner counts by
-    year) + extracted NSC table (pass rate by year) + SNAP (staff
-    counts, once obtained) into one row-per-school-per-year table.
-    Known join risks: EMIS formatting (leading zeros — EMIS is a
-    text/string field, e.g. "0100000217", not numeric — make sure
-    no tool silently converts it to a number and drops the
-    leading zero), schools present in one source but not another,
-    district name spelling differences between sources.
+    Join key: EMIS number, normalized (strip non-digits and
+    leading zeros — verified necessary, EMIS appears with and
+    without leading zeros across sources per datasets/INDEX.md).
+    Join the EMIS masterlists (Section 1g, identity + quintile +
+    teacher/learner counts across years) + extracted NSC table
+    (pass rate + Total Wrote by year) + No Fee Schools table
+    (cross-check only) into one row-per-school-per-year table.
+    Verified join rates (datasets/INDEX.md): ArcGIS CSV 100%,
+    No-Fee PDF 99%, NSC PDF 99%. Reconcile any school-renumbering
+    mismatches using OldNATEMIS/NewNATEMIS columns in the
+    masterlists.
 
   STEP 3 - Engineer features
-    Same as Track B's feature set (Section 3.1), PLUS once SNAP
-    is available:
-      - teacher_learner_ratio <- educators / learners, by year
-      - true grade-level enrollment deltas (Gr9->10, Gr10->11,
-        Gr11->12), IF SNAP confirms grade-level granularity
+    Same as Track B's feature set (Section 3.1) — teacher_learner_
+    ratio and enrollment_trend are now real, confirmed features
+    from the masterlists, not pending. The only feature still
+    genuinely blocked on SNAP is true grade-level enrollment
+    deltas (Gr9->10, Gr10->11, Gr11->12).
 
   STEP 4 - Build the true label
     For a school's Grade 10 cohort in year Y, track that same
@@ -294,20 +351,21 @@ STEP 0 — DONE (2026-09-16): confirmed via pdftotext -layout that
   % Achieved columns. See Sections 1c, 1d, and 2 for what this
   means for the label.
 
-STEP 1 (~1-2 hrs): Extract tables from the 3 PDFs we have
-  (WC_No_Fee_Schools_2023.pdf, WC_No_Fee_Schools_2025.pdf,
-  NSC_School_Performance_Report_2024.pdf) into clean CSVs.
-  Tooling: pdftotext -layout, or tabula-py/camelot for the NSC
-  report specifically (it's large and table-heavy).
+STEP 1 (~1-2 hrs): Extract tables from the PDFs (NSC report is
+  the priority — verified extractable with pdfplumber per
+  datasets/INDEX.md; No Fee Schools PDFs are now cross-check only,
+  lower priority since the masterlists supersede them).
 
 STEP 2 (~30 min): Register a free DataFirst account (one person
-  on the team) and request access to the SNAP Survey, to learn
-  whether it has grade-level enrollment. Do this in parallel with
+  on the team) and request BOTH SNAP versions (1997-2016 and
+  2023) to check for grade-level enrollment — this is now the
+  ONLY remaining registration-gated item. Do this in parallel with
   Step 1 — don't block on it.
 
-STEP 3 (~1 hr): Join EMIS-keyed tables (Section 1a + extracted
-  No Fee + extracted NSC) into one working table, one row per
-  school per available year.
+STEP 3 (~1 hr): Join EMIS-keyed tables — the masterlists panel
+  (Section 1g) + extracted NSC table — into one working table, one
+  row per school per available year. Join rates already verified
+  (datasets/INDEX.md), so this step is mechanical, not exploratory.
 
 STEP 4 (~2 hrs): Build Track B's risk score (Section 3), get it
   into Grist, sanity-check against national benchmarks.
@@ -342,17 +400,29 @@ STEP 7: Rehearse the presentation. Per the hackathon format
 
 7. OPEN QUESTIONS TO TRACK
 ---------------------------------------------------------
-- [ ] Do the No Fee Schools PDFs break learner numbers down by
-      grade? (Section 5, Step 0)
+RESOLVED (2026-09-16, own check + teammate's data-collection
+branch):
+  - [x] No Fee Schools PDFs: single total, not per-grade. No.
+  - [x] EMIS Downloads page: DOES host the real ordinary-schools
+        masterlist (not just ECD) — no registration needed.
+  - [x] Teacher:learner ratio: available now via the masterlists,
+        SNAP not required for this specific feature.
+  - [x] District name matching: masterlists include EIDistrict/
+        EICircuit directly per school, so this can be joined
+        without a separate name-reconciliation pass against
+        SA_Education_District_Boundaries.
+
+STILL OPEN:
 - [ ] Does the SNAP Survey include per-grade enrollment, or only
-      totals + staff counts? (confirm after DataFirst registration)
-- [ ] Do district names match exactly between
-      WesternCape_Public_Ordinary_Schools_2025.csv
-      (EDUCATIONDISTRICT) and SA_Education_District_Boundaries
-      (EIDISTRICT)? Needs a manual lookup/cleaning pass.
+      totals + staff counts? (confirm after DataFirst registration
+      — this is now THE deciding question for whether Track A's
+      true label is reachable at all this hackathon)
 - [ ] Does DG Murray Trust / Zero Dropout Campaign publish any
       school-level or quintile-level dropout figures (not just
       the national 40% headline)? Would make an excellent small
       validation set for Track B's risk score even before Track A
       is buildable — worth a targeted search on dgmt.co.za and
       zerodropout.co.za.
+- [ ] WC_2022Q2.xlsx is mislabeled upstream (DataYear says 2025,
+      not 2022, per teammate's verification) — confirm this
+      doesn't hide a genuine 2022 data gap once the panel is built.
