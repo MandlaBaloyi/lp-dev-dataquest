@@ -1,88 +1,119 @@
-# Early Warning System for School Dropout - Datasets Index
+# Early Warning System for School Dropout — Data Inventory
 
-**Project Goal:** Predict school-level dropout rates for Grade 10-12 cohorts in South Africa to enable targeted intervention.
+**Goal:** predict school-level dropout for Grade 10–12 cohorts, Western Cape pilot.
 
-**Last updated:** 2026-09-16 — real files downloaded from live public sources (not placeholders).
-
----
-
-## ✅ What's actually downloaded right now
-
-| File | Location | Records | Source Type |
-|---|---|---|---|
-| `WesternCape_Public_Ordinary_Schools_2025.csv` | `01_DBE_EMIS/` | 1,480 schools | Live API (ArcGIS, WCG) |
-| `WesternCape_Independent_Ordinary_Schools_2025.csv` | `01_DBE_EMIS/` | 343 schools | Live API (ArcGIS, WCG) |
-| `WC_No_Fee_Schools_2023.pdf` | `02_No_Fee_Schools/` | ~province-wide | DBE PDF (needs table extraction) |
-| `WC_No_Fee_Schools_2025.pdf` | `02_No_Fee_Schools/` | ~province-wide | DBE PDF (needs table extraction) |
-| `NSC_School_Performance_Report_2024.pdf` | `04_NSC_Results/` | National, all schools | DBE PDF (needs table extraction) |
-| `GHS_2024_Report.pdf` | `05_Stats_SA_GHS/` | National, by province | Stats SA official report |
-| `SA_Education_District_Boundaries_Attributes.csv` | `06_Provincial_Data/` | 86 districts, all provinces | Live API (ArcGIS) |
-
-**Total: 7 real files, ~19 MB, covering identity/quintile/geography for ~1,823 Western Cape schools plus national district structure, matric results, and provincial dropout-reason context.**
-
-## ⚠️ What still needs YOU to act (registration-gated — I can't do this part)
-
-All three of these are on **DataFirst** (UCT) and require a **free account** (just an email address, no cost):
-
-1. **National EMIS Schools Masterlist** (all provinces) → https://www.datafirst.uct.ac.za/dataportal/index.php/catalog/985
-2. **SNAP Survey** (teacher/learner staffing ratios) → https://www.datafirst.uct.ac.za/dataportal/index.php/catalog/689/study-description
-3. **NSC microdata 2010-2016** (subject-level detail) → registered via DataFirst, linked from the NSC results page
-
-Register once, and all three become accessible from the same account. Drop the downloaded files into the matching folder (`01_DBE_EMIS/`, `03_SNAP_Survey/`, `04_NSC_Results/`) when you have them.
+**Last verified:** 2026-09-16. Every claim below was checked by downloading the file and
+inspecting its columns — not inferred from a portal description.
 
 ---
 
-## Folder-by-folder status
+## The complete requirement list
 
-### 1. `01_DBE_EMIS/` — School identity & join key
-**Status: Strong — real, current, live data for Western Cape.** 1,823 schools with EMIS number, quintile, no-fee flag, district, coordinates. National masterlist still needs DataFirst registration (see above).
+| # | What the model needs | Used for | Status | Source |
+|---|---|---|---|---|
+| 1 | EMIS number (join key) | joining everything | **have** | EMIS masterlists |
+| 2 | Quintile / no-fee flag | feature | **have** | EMIS masterlists |
+| 3 | District, circuit, urban/rural, GPS | feature | **have** | EMIS masterlists |
+| 4 | Total learners per school per year | enrolment trend feature | **have, 2007–2025** | EMIS masterlists |
+| 5 | Educators per school per year | teacher:learner ratio | **have, 2007–2025** | EMIS masterlists |
+| 6 | NSC `Total Wrote` / `% Achieved` per school | pass-rate trend + label fallback | **2022–24 have; 2012–21 downloadable** | NSC School Performance Reports |
+| 7 | School closure / merge / renumber tracking | data hygiene | **have** | `OldNATEMIS`/`NewNATEMIS` cols |
+| 8 | Province-level reasons for leaving | interpreting results | **have** | GHS 2024 |
+| 9 | **Learners by grade, per school, per year** | **the dropout label** | **MISSING — gated** | SNAP microdata (DataFirst) |
 
-### 2. `02_No_Fee_Schools/` — Funding quintile & yearly learner counts
-**Status: Partial.** 2023 and 2025 PDFs downloaded directly from DBE (no login). Still PDFs — need table extraction to become usable CSV. Note: quintile/no-fee status is already available more easily via the CSV in `01_DBE_EMIS/`; these PDFs mainly add year-by-year learner headcounts for trend calculation.
-
-### 3. `03_SNAP_Survey/` — Teacher-to-learner ratio
-**Status: Blocked on registration.** Nothing downloaded — DataFirst explicitly licenses this dataset (not open). Free account + Data Access Agreement required.
-
-### 4. `04_NSC_Results/` — Pass-rate trend
-**Status: Partial.** 2024 School Performance Report downloaded directly from DBE (7.5MB, national, school-by-school, includes 3-year history per school). Still a PDF needing extraction. Earlier years (2017-2023) and full microdata (2010-2016) not yet retrieved.
-
-### 5. `05_Stats_SA_GHS/` — Why learners leave (context, by province)
-**Status: Good enough for stated use.** 2024 official report downloaded directly (no login) — has the province-level attendance-reason tables the plan calls for. Raw microdata exists but requires registration and likely isn't needed unless custom cross-tabs are wanted.
-
-### 6. `06_Provincial_Data/` — Geography & research benchmarks
-**Status: Partial.** National education district boundaries downloaded (86 districts, all provinces, live API). Several more WC-specific layers identified and ready to pull on request. DG Murray Trust / Zero Dropout Campaign research not yet retrieved (these are reports, not datasets — no bulk download exists).
+**One item (#9) is the only real blocker.** Everything else is open and in hand.
 
 ---
 
-## Data Join Strategy
+## Correction to earlier notes
 
-All Western-Cape-specific datasets link via **EMIS number**:
+A previous version of this file stated that DBE's EMIS Downloads page "no longer hosts an
+ordinary-schools masterlist, only ECD data," and that SNAP registration was required for
+teacher-to-learner ratio. **Both are wrong.**
 
-```
-No Fee Schools PDF (learner counts by year)
-     ↓
-   [EMIS]  ← WesternCape_Public_Ordinary_Schools_2025.csv (school identity, quintile, location)
-     ↓
-SNAP Survey (educator counts) — pending registration
-     ↓
-NSC Results PDF (pass rates) — needs extraction
-```
-
-**Result:** One table, one row per school per year, with all features combined.
+`education.gov.za/Programmes/EMIS/EMISDownloads.aspx` hosts 297 files across 26 quarters
+(2013–2025). The provincial files are ordinary schools (`Type_DoE = ORDINARY SCHOOL`) and
+each carries `Learners{year}` **and** `Educators{year}`. No login, no registration.
 
 ---
 
-## Recommended Next Steps (in order)
+## What is now downloaded
 
-1. **You:** Register a free DataFirst account and download the 3 gated files listed above.
-2. **Me (on request):** Extract the tables from the 3 PDFs already downloaded (No Fee Schools x2, NSC Report) into clean CSVs — I can do this now if you want.
-3. **Me (on request):** Pull the remaining WC ArcGIS layers listed in `06_Provincial_Data/README.md` (district offices, facilities app, education barometer dashboard).
-4. **Together:** Once EMIS-keyed tables exist for identity + quintile + staffing + pass-rate, join them into the single per-school-per-year table described in Section 4, Step 2 of the plan.
+### `01_DBE_EMIS/masterlists/` — 35 files, the backbone panel
+Western Cape provincial masterlists for every available quarter, plus the national
+ordinary-school files. Per school per year: EMIS, name, sector, phase, district, circuit,
+quintile, no-fee flag, Section 21, urban/rural, GPS, **learner count, educator count**.
+
+Distinct data years covered for WC: 2007–2013 (all seven inside `WC_2013Q1.xlsx` as
+`Snap_Learners_2007`…`2013`), then 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023,
+2024, 2025. **2014 is the only gap.**
+
+`WC_2022Q2.xlsx` is mislabelled upstream — its `DataYear` is 2025, not 2022. Trust the
+`DataYear` column, not the filename.
+
+### `01_DBE_EMIS/` — WCG ArcGIS CSVs (1,480 public + 343 independent)
+Weekly-refreshed, already machine-readable. Redundant with the masterlists for quintile and
+identity, but adds medium of instruction and a current open/closed status.
+
+### `04_NSC_Results/NSC_School_Performance_Report_2024.pdf` — 155 pages
+Extraction verified with `pdfplumber`. Per school: EMIS No, Centre No, name, district,
+quintile, and for **each of 2022, 2023, 2024**: `No Progressed`, `Total Wrote`,
+`Total Achieved`, `% Achieved`. Western Cape occupies pages 143–152.
+
+### `02_No_Fee_Schools/` — now redundant
+Both PDFs parse fine (EMIS, name, phase, address, district, quintile, learner count), but
+the masterlists give the same fields for *all* schools across *more* years in clean XLSX.
+Keep for cross-checking; don't build the pipeline on them.
+
+### `05_Stats_SA_GHS/GHS_2024_Report.pdf`, `06_Provincial_Data/` — unchanged, sufficient
 
 ---
 
-## Important Notes (confirmed during this download session)
+## Join keys — verified, not assumed
 
-- **DBE's EMIS Downloads page no longer hosts an ordinary-schools masterlist** — only ECD (early childhood) centre data. This contradicts the earlier assumption in the plan; the real masterlist source is DataFirst (gated) or the WCG live API (open, WC-only) used here.
-- **The WCG ArcGIS layer is actually MORE current and more structured than the No Fee Schools PDF** for identity/quintile purposes — it's updated weekly and already machine-readable.
-- **PDFs (No Fee Schools, NSC Report) are real DBE-published documents**, not fabricated — but they need table-extraction work before they're model-ready.
+EMIS numbers appear with and without a leading zero. Strip non-digits and leading zeros,
+then everything matches:
+
+| Join | Match rate |
+|---|---|
+| ArcGIS CSV → EMIS masterlist 2025 | **1480/1480 (100%)** |
+| No-Fee PDF 2023 → EMIS masterlist 2025 | **893/894 (99%)** |
+| NSC 2024 PDF (WC pages) → EMIS masterlist 2025 | **463/464 (99%)** |
+| EMIS 2024 → EMIS 2025 (year-over-year panel) | **1819 schools** |
+
+Learner *and* educator counts are populated for 1910/1935 WC schools (98.7%) in 2025, so the
+teacher:learner ratio is computable now.
+
+---
+
+## The one gap: per-grade enrolment
+
+Grade 10/11/12 counts per school exist **only** in the SNAP microdata. Confirmed licensed on
+both mirrors — a free DataFirst account plus a Data Access Agreement, no cost:
+
+- SNAP 1997–2016 (v1.6): https://www.datafirst.uct.ac.za/dataportal/index.php/catalog/689
+- SNAP 2023: https://www.datafirst.uct.ac.za/dataportal/index.php/catalog/study/zaf-dbe-snaps-2023-v1
+- World Bank mirror (1997–2013, also licensed): https://microdata.worldbank.org/index.php/catalog/2164
+
+Request both SNAP versions from one account.
+
+### Fallback if SNAP does not arrive
+
+Build the label from **matric throughput** instead of cohort tracking: for a secondary
+school, compare `Total Wrote` in year Y (NSC) against that school's total enrolment in
+year Y−2 (EMIS). This is weaker — it conflates intake changes with dropout, and only works
+for schools whose phase is `SECONDARY SCHOOL` — but it is buildable entirely from open data
+and needs no registration. State the limitation explicitly if used.
+
+---
+
+## Next steps
+
+1. **You:** register at DataFirst, request SNAP 1997–2016 and SNAP 2023 (item #9).
+2. Download NSC School Performance Reports 2012–2021 — each covers 3 years, so ~4 reports
+   extend per-school matric history back to 2010. Listed at
+   `education.gov.za/Resources/Reports.aspx`.
+3. Build the per-school-per-year table from `masterlists/`, keyed on normalised EMIS,
+   reconciling renumbering via `OldNATEMIS`/`NewNATEMIS`.
+4. Extract NSC tables to CSV and join on EMIS.
+5. Engineer features, build the label, train.
