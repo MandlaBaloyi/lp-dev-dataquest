@@ -31,18 +31,33 @@ b) datasets/01_DBE_EMIS/WesternCape_Independent_Ordinary_Schools_2025.csv
 
 c) datasets/02_No_Fee_Schools/WC_No_Fee_Schools_2023.pdf and
    WC_No_Fee_Schools_2025.pdf
-   Real DBE PDFs. Contain: school name, phase, address, district,
-   quintile, and LEARNER NUMBERS for that year. NOT yet extracted
-   to a table — need OCR/table-extraction before use (see
-   Section 5, Step 1).
-   NOTE: need to verify during extraction whether learner numbers
-   are TOTAL per school or broken down BY GRADE. This materially
-   changes what we can do with it (see Section 2).
+   CONFIRMED (2026-09-16, via pdftotext -layout): columns are
+   EMIS, Name, School Phase, Address, Education District,
+   Quintile, and a SINGLE "Learner Numbers" total per school for
+   that year — NOT broken down by grade. This closes Section 2's
+   open question with a NO: this source cannot give us Grade
+   10/11/12-specific enrollment. Still usable for: a rough
+   whole-school enrollment trend (2023 vs 2025) and as a second
+   check on quintile.
 
 d) datasets/04_NSC_Results/NSC_School_Performance_Report_2024.pdf
-   7.5MB, national, school-by-school NSC pass rates with a
-   3-year performance history per school (2022-2024 likely).
-   Not yet extracted. This is our pass-rate-trend source.
+   CONFIRMED (2026-09-16, via pdftotext -layout): this is better
+   than assumed. Per school, per YEAR (2022, 2023, AND 2024, all
+   three in the same table), it has: EMIS, Centre Name, Quintile,
+   Progressed No, Total Wrote, Total Achieved, % Achieved.
+     - Total Wrote = actual Grade 12 matric-exam candidate count
+       for that school that year — a real, usable cohort-size
+       number, not just a pass-rate percentage.
+     - Progressed No = learners "progressed" to matric despite not
+       meeting promotion requirements (a known DBE policy). A high
+       Progressed-No share is itself a strong at-risk signal we
+       hadn't planned on having — add it to the Track B feature
+       set (Section 3.1).
+     - Gives a genuine 3-year pass-rate AND matric-cohort-size
+       trend per school, not a single-year snapshot.
+   Extraction is non-trivial: pdftotext -layout misaligns some
+   rows because the source PDF wraps long school names across
+   lines — budget real cleanup time here (Section 5, Step 1).
 
 e) datasets/05_Stats_SA_GHS/GHS_2024_Report.pdf
    Official Stats SA report. Province-level attendance and
@@ -78,19 +93,22 @@ Calculating this REQUIRES per-grade, per-year enrollment counts
 per school (e.g., "how many kids were in Grade 10 at School X in
 2021, and how many of School X's kids were in Grade 12 in 2023").
 
-None of the datasets we currently have in hand (Section 1a-f)
-contain grade-level enrollment breakdowns. The two candidates
-that MIGHT have this are:
-  - The No Fee Schools PDFs (c) — IF their "learner numbers" are
-    broken down by grade, not just a school total. Unverified.
-  - The SNAP Survey (g) — the most likely real source for this,
-    but it's gated behind DataFirst registration, so we can't
-    confirm grade-level granularity until someone on the team
-    registers and opens it.
+CONFIRMED (2026-09-16): the No Fee Schools PDFs do NOT have
+grade-level breakdown — just a single total learner count per
+school (Section 1c). That candidate is closed off.
 
-This is the single most important open question for the whole
-project. Resolve it FIRST (Section 5, Step 0) before committing
-engineering time to a full regression pipeline.
+The ONLY remaining candidate for true Grade 10/11/12 enrollment
+counts is the SNAP Survey (Section 1g) — gated behind DataFirst
+registration, grade-level granularity still unverified until
+someone on the team registers and opens it.
+
+One partial substitute we DID confirm: the NSC report (Section
+1d) gives real "Total Wrote" (Grade 12 exam candidate) counts per
+school per year for 2022-2024. That's the NUMERATOR side of the
+dropout ratio (how many reached matric-writing stage). We still
+lack the DENOMINATOR (how many started Grade 10 two years
+earlier) without SNAP or equivalent grade-level data. So: half
+of Track A's label is now real data, half is still blocked.
 
 Because of this, this plan runs TWO TRACKS in parallel:
 
@@ -124,10 +142,23 @@ regression we don't have the label data for yet.
   - district              <- EDUCATIONDISTRICT (categorical)
   - school_phase          <- SCHOOLTYPE (Secondary/Intermediate/
                              Combined)
-  - pass_rate_2024        <- from NSC_School_Performance_Report
-                             (once extracted)
-  - pass_rate_trend       <- slope/delta across the 3-year history
-                             embedded in the same NSC report
+  - pass_rate_2024        <- "% Achieved" for 2024, from
+                             NSC_School_Performance_Report (confirmed
+                             real column, needs extraction — see
+                             Section 1d)
+  - pass_rate_trend       <- slope/delta across "% Achieved" for
+                             2022/2023/2024, same report
+  - matric_cohort_trend   <- slope/delta across "Total Wrote" for
+                             2022/2023/2024 — a shrinking matric
+                             cohort at a school (adjusting for
+                             province-wide enrollment changes) is a
+                             directional dropout signal even without
+                             true Grade 10 denominators
+  - progressed_share      <- "Progressed No" / "Total Wrote" per
+                             year — share of learners pushed to
+                             matric despite not meeting promotion
+                             requirements; confirmed available,
+                             strong at-risk proxy
   - remoteness_proxy      <- engineered from LATITUDE/LONGITUDE:
                              distance to Cape Town CBD (or nearest
                              major town centroid) as a rural/
@@ -256,10 +287,12 @@ approach, restated here against our real files:
 
 5. IMMEDIATE ACTION LIST (do these in order)
 ---------------------------------------------------------
-STEP 0 (do first, ~30 min): Open one of the No Fee Schools PDFs
-  and check by hand: are learner numbers per school broken down
-  by grade, or just a single total? This one fact determines how
-  much of Track A is reachable this weekend vs. later.
+STEP 0 — DONE (2026-09-16): confirmed via pdftotext -layout that
+  No Fee Schools PDFs have only a single total learner count per
+  school (no grade breakdown), and that the NSC report has real
+  per-school, per-year (2022-2024) Total Wrote / Progressed No /
+  % Achieved columns. See Sections 1c, 1d, and 2 for what this
+  means for the label.
 
 STEP 1 (~1-2 hrs): Extract tables from the 3 PDFs we have
   (WC_No_Fee_Schools_2023.pdf, WC_No_Fee_Schools_2025.pdf,

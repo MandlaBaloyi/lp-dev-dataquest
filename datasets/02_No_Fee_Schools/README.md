@@ -11,6 +11,9 @@ Both downloaded directly, no login required, from DBE's own publications archive
 
 **Contents (per the DBE publication):** school name, phase, address, education district, quintile (NQ1-NQ5), and learner numbers, for every no-fee school in the Western Cape, for that year.
 
+### ⚠️ Confirmed limitation (checked 2026-09-16 via `pdftotext -layout`)
+The "learner numbers" column is a **single total per school** — it is NOT broken down by grade. This closes off the hope (raised in `docs/plan_v1.txt` Section 2) that this file could supply Grade 10/11/12-specific enrollment counts. It's still usable for a rough whole-school enrollment trend (2023 vs 2025) and as a cross-check on quintile, but it cannot supply the denominator needed for a true cohort-tracked dropout % label. The only remaining candidate for that is the SNAP Survey (`03_SNAP_Survey/`), still pending DataFirst registration.
+
 These are genuine PDFs — they still need to be converted to a clean table (they're not pre-structured CSVs). See "Turning these into usable data" below.
 
 ## Better alternative already in `01_DBE_EMIS/`
