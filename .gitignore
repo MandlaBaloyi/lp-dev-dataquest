@@ -1,0 +1,7 @@
+# Leftover backup from repo history fix — not part of this project
+.git-backup-old-dataquest-project/
+
+# Unrelated legacy files from a different DataQuest submission (SAS credit-risk project)
+# left in this folder from before — excluded so they don't get committed here by accident.
+SAS_CODE.sas
+dataquest_dataset.csv
