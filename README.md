@@ -136,9 +136,14 @@ python -m src.build.nsc_results        # PDFs   -> nsc_results.csv
 python -m src.build.school_panel       # sheets -> school_year_panel.csv.gz
 python -m src.build.clean              #        -> clean_panel.csv.gz
 python -m src.model.features           #        -> model_frame.csv.gz
-python -m src.model.train              # scorecard + benchmarks -> outputs/
-python -m src.model.charts             # figures -> outputs/
+python -m src.model.train              # the scorecard      -> outputs/
+python -m src.model.benchmark          # the forest it is measured against
+python -m src.model.charts             # figures            -> outputs/
+python -m src.eda.run_audit            # the anomaly findings -> outputs/
 ```
+
+Every file in `outputs/` is produced by one of these. Nothing in it was copied
+from anywhere, and nothing in it is orphaned from code that no longer exists.
 
 Everything runs as a module from the repository root. Running a file by path
 (`python src/model/train.py`) breaks the `src.` imports.
