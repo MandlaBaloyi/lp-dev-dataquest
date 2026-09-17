@@ -158,8 +158,11 @@ with target_tab:
                    f"against {eda['p_loss_t2_given_no_loss_t']:.0%} otherwise.")
 
 with model_tab:
-    st.markdown("Trained on **2008–2016**, threshold chosen on **2018–2019**, tested on **2021–2023**. "
-                "WoE bins were fitted on training years only and never refitted.")
+    st.markdown(
+        f"Trained on **{m['scorecard_train']['n']:,} school-years** (2008–2016), threshold "
+        f"chosen on **{m['scorecard_valid']['n']:,}** (2018–2019), tested on "
+        f"**{m['scorecard_test']['n']:,}** (2021–2023). "
+        "WoE bins were fitted on training years only and never refitted.")
     rows = []
     for split, name in (("valid", "Validation 2018–19"), ("test", "Test 2021–23")):
         for mdl, mname in (("scorecard", "Scorecard"), ("tree", "Tree benchmark")):

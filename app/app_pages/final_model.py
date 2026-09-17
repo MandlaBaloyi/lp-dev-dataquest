@@ -40,8 +40,18 @@ def forest():
 st.title("The final model")
 st.markdown(
     f"A **Logistic Regression Scorecard** over **{len(model['features_in_model'])} variables**, "
-    "trained on 2008–2016, tuned on 2018–2019 and measured once on **2021–2023**. "
+    f"trained on **{model['metrics']['scorecard_train']['n']:,} school-years** (2008–2016), "
+    f"tuned on **{model['metrics']['scorecard_valid']['n']:,}** (2018–2019) and measured once "
+    f"on **{model['metrics']['scorecard_test']['n']:,}** (2021–2023). "
     "Every number below comes from those test years, which the model never saw."
+)
+st.caption(
+    "A school-year is one school in one year — the unit the model actually learns from. "
+    f"The {model['metrics']['scorecard_test']['n']:,} test rows are "
+    f"{scores()['emis'].nunique():,} distinct schools observed across three years, not "
+    f"{model['metrics']['scorecard_test']['n']:,} separate schools. This is also why the "
+    "split is by year and never at random: the same school recurs, so a random split would "
+    "put one of its years in training and another in test."
 )
 st.caption(
     "**The algorithm is logistic regression.** \"Scorecard\" describes how its "
