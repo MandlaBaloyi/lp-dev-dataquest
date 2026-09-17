@@ -3,35 +3,49 @@
 Reads datasets/raw/emis_masterlists/*.xlsx and writes
 datasets/processed/school_year_panel.csv - one row per school per year.
 
-Three things make this less trivial than it sounds:
+Five things make this less trivial than it sounds:
 
 1. Column names drift year to year. Learner counts appear as Learners2025,
    Learners_2015, "Learner_Number 2017" and Snap_Learners_2011. We match any
    column whose name mentions learners/educators and ends in a four-digit year.
 
-2. Some files carry several years at once. The 2013 Q1 files hold
+2. Capitalisation drifts too. The 2019 files say NatEMIS where every other year
+   says NatEmis. All header matching is therefore case-insensitive - an exact
+   match silently dropped the whole of 2019 on the first run.
+
+3. Province codes are not stable: KwaZulu-Natal appears as both KZ and KZN, and
+   Gauteng as both GT and GP, which splits one province into two.
+
+4. Some files carry several years at once. The 2013 Q1 files hold
    Snap_Learners_2007 through 2013, so one row there yields seven panel rows.
 
-3. The same year is published in several quarters. Later quarters supersede
+5. The same year is published in several quarters. Later quarters supersede
    earlier ones, so we keep the highest quarter seen for each school-year.
+
+Known source-side defect: the Northern Cape 2025 Q2 slot on DBE's page holds a
+Word template, not a masterlist, so NC has no 2025 row. Nothing to fix our end.
 """
 
 import os
 import re
 import csv
+import gzip
 import glob
+import itertools
 import openpyxl
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = os.path.join(ROOT, "datasets", "raw", "emis_masterlists")
 OUT_DIR = os.path.join(ROOT, "datasets", "processed")
-OUT = os.path.join(OUT_DIR, "school_year_panel.csv")
+# Gzipped: the plain CSV is ~74MB, which is past the point where GitHub starts
+# complaining. pandas.read_csv reads .csv.gz directly, no extra step needed.
+OUT = os.path.join(OUT_DIR, "school_year_panel.csv.gz")
 
 # Preferred column name first; the first one present in a file wins.
 FIELDS = {
     "province":  ["Province"],
     "school":    ["Official_Institution_Name", "Institution_Name", "InstitutionName",
-                  "Institution", "LURITS_Name"],
+                  "Institution", "LURITS_Name", "Name"],
     "status":    ["Status", "DoE_Status", "LURITS_Status"],
     "sector":    ["Sector"],
     "type":      ["Type_DoE", "Type"],
@@ -41,11 +55,14 @@ FIELDS = {
     "quintile":  ["Quintile"],
     "nofee":     ["NoFeeSchool"],
     "urbanrural": ["Urban_Rural", "UrbanRural"],
-    "lat":       ["GIS_Lat", "GIS_Latitude"],
-    "lon":       ["GIS_Long", "GIS_Longitude"],
+    "lat":       ["GIS_Lat", "GIS_Latitude", "New Lat"],
+    "lon":       ["GIS_Long", "GIS_Longitude", "New Long"],
     "old_emis":  ["OldNATEMIS"],
     "new_emis":  ["NewNATEMIS"],
 }
+
+# The same province is published under different codes in different years.
+PROVINCE_FIX = {"KZ": "KZN", "GT": "GP", "NC": "NC", "NW": "NW"}
 
 COLUMNS = ["emis", "year", "province", "school", "status", "sector", "type", "phase",
            "district", "circuit", "quintile", "nofee", "urbanrural", "lat", "lon",
@@ -74,6 +91,23 @@ def year_columns(header, word):
     return out
 
 
+def find_col(header, candidates):
+    """Case-insensitive header lookup. 2019 spells it NatEMIS, not NatEmis."""
+    lowered = [h.strip().lower() for h in header]
+    for cand in candidates:
+        try:
+            return lowered.index(cand.strip().lower())
+        except ValueError:
+            continue
+    return None
+
+
+def looks_like_emis(values):
+    """EMIS numbers are 8-10 digit integers. Used to recover a mislabelled column."""
+    hits = [v for v in values if re.fullmatch(r"0?\d{8,10}", str(v or "").strip())]
+    return len(hits) >= max(3, len(values) // 2)
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     files = sorted(glob.glob(os.path.join(RAW, "*.xlsx")))
@@ -99,18 +133,25 @@ def main():
                 header = [str(c or "") for c in next(rows)]
             except StopIteration:
                 continue
-            if "NatEmis" not in header:
-                continue
+            i_emis = find_col(header, ["NatEmis", "NatEMIS", "NATEMIS"])
+            if i_emis is None:
+                # Gauteng 2023 ships with its first column headed "G" - the header
+                # was truncated upstream. Recover it by checking the values.
+                peek = list(itertools.islice(rows, 8))
+                rows = itertools.chain(peek, rows)
+                if peek and looks_like_emis([r[0] for r in peek if r]):
+                    i_emis = 0
+                    print(f"  recovered mislabelled EMIS column in {fname} "
+                          f"(header was {header[0]!r})")
+                else:
+                    continue
 
-            i_emis = header.index("NatEmis")
             learner_cols = year_columns(header, "learner")
             educator_cols = year_columns(header, "educator")
             if not learner_cols:
                 continue
 
-            resolved = {}
-            for key, candidates in FIELDS.items():
-                resolved[key] = next((header.index(c) for c in candidates if c in header), None)
+            resolved = {k: find_col(header, c) for k, c in FIELDS.items()}
 
             for row in rows:
                 emis = norm_emis(row[i_emis])
@@ -118,6 +159,8 @@ def main():
                     continue
                 base = {k: clean(row[i]) if i is not None and i < len(row) else ""
                         for k, i in resolved.items()}
+                prov = base["province"].strip().upper()
+                base["province"] = PROVINCE_FIX.get(prov, prov)
 
                 for year, li in learner_cols.items():
                     learners = row[li] if li < len(row) else None
@@ -137,7 +180,26 @@ def main():
         wb.close()
 
     print(f"panel rows: {len(panel)}")
-    with open(OUT, "w", newline="", encoding="utf-8") as fh:
+
+    # A school's phase, sector and name do not change year to year, but the older
+    # files record them under different column names and sometimes not at all.
+    # Carry the known value across every year of the same school.
+    STABLE = ("phase", "sector", "type", "school", "district", "urbanrural", "lat", "lon")
+    known = {}
+    for _, rec in panel.values():
+        slot = known.setdefault(rec["emis"], {})
+        for field in STABLE:
+            if not slot.get(field) and rec.get(field):
+                slot[field] = rec[field]
+    filled = 0
+    for _, rec in panel.values():
+        for field in STABLE:
+            if not rec.get(field) and known[rec["emis"]].get(field):
+                rec[field] = known[rec["emis"]][field]
+                filled += 1
+    print(f"back-filled {filled} stable attribute values across years")
+
+    with gzip.open(OUT, "wt", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=COLUMNS, extrasaction="ignore")
         w.writeheader()
         for _, rec in sorted(panel.values(), key=lambda kv: (kv[1]["emis"], kv[1]["year"])):

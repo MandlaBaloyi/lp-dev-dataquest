@@ -14,9 +14,9 @@ inspecting its columns — not inferred from a portal description.
 | 1 | EMIS number (join key) | joining everything | **have** | EMIS masterlists |
 | 2 | Quintile / no-fee flag | feature | **have** | EMIS masterlists |
 | 3 | District, circuit, urban/rural, GPS | feature | **have** | EMIS masterlists |
-| 4 | Total learners per school per year | enrolment trend feature | **have, 2007–2025** | EMIS masterlists |
-| 5 | Educators per school per year | teacher:learner ratio | **have, 2007–2025** | EMIS masterlists |
-| 6 | NSC `Total Wrote` / `% Achieved` per school | pass-rate trend + label fallback | **2022–24 have; 2012–21 downloadable** | NSC School Performance Reports |
+| 4 | Total learners per school per year | enrolment trend feature | **have, 2007–2025, all 9 provinces** | EMIS masterlists |
+| 5 | Educators per school per year | teacher:learner ratio | **have, 2007–2025, all 9 provinces** | EMIS masterlists |
+| 6 | NSC `Total Wrote` / `% Achieved` per school | pass-rate trend + label fallback | **have, 2010–2024, national** | NSC School Performance Reports |
 | 7 | School closure / merge / renumber tracking | data hygiene | **have** | `OldNATEMIS`/`NewNATEMIS` cols |
 | 8 | Province-level reasons for leaving | interpreting results | **have** | GHS 2024 |
 | 9 | **Learners by grade, per school, per year** | **the dropout label** | **MISSING — gated** | SNAP microdata (DataFirst) |
@@ -37,28 +37,78 @@ each carries `Learners{year}` **and** `Educators{year}`. No login, no registrati
 
 ---
 
+## Repo layout
+
+Raw downloads are **gitignored** — several hundred MB, every byte re-fetchable with no
+login. The fetch scripts are version controlled instead. Run them to rebuild:
+
+```
+src/fetch_emis_masterlists.py   -> datasets/raw/emis_masterlists/   (234 files)
+src/fetch_nsc_reports.py        -> datasets/raw/nsc_reports/        (13 PDFs)
+src/build_school_panel.py       -> datasets/processed/school_year_panel.csv
+```
+
 ## What is now downloaded
 
-### `01_DBE_EMIS/masterlists/` — 35 files, the backbone panel
-Western Cape provincial masterlists for every available quarter, plus the national
-ordinary-school files. Per school per year: EMIS, name, sector, phase, district, circuit,
-quintile, no-fee flag, Section 21, urban/rural, GPS, **learner count, educator count**.
+### `raw/emis_masterlists/` — 233 files, all nine provinces, the backbone
+One file per province per quarter. Per school per year: EMIS, name, sector, phase,
+district, circuit, quintile, no-fee flag, Section 21, urban/rural, GPS, **learner count,
+educator count**.
 
-Distinct data years covered for WC: 2007–2013 (all seven inside `WC_2013Q1.xlsx` as
-`Snap_Learners_2007`…`2013`), then 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023,
-2024, 2025. **2014 is the only gap.**
+Years 2007–2013 all sit inside the 2013 Q1 files as `Snap_Learners_2007`…`2013`, so a
+single file yields seven years. Then 2015 onward has its own file per quarter.
 
-`WC_2022Q2.xlsx` is mislabelled upstream — its `DataYear` is 2025, not 2022. Trust the
-`DataYear` column, not the filename.
+Two upstream defects to know about:
+
+- **Northern Cape has no 2025 data.** The NC 2025 Q2 slot on DBE's page holds a Word
+  document — a School Self-Evaluation form template uploaded into the wrong slot. It
+  downloads cleanly with an `.xlsx` extension and is not a spreadsheet. NC's latest is 2024.
+- **NC 2019 Q4 returns HTTP 403.** Harmless: that province's Q3 file covers the same year.
+
+### `raw/nsc_reports/` — 13 reports, national, 2012–2024
+Each report carries **three years** of results per school, and they chain with no gaps or
+overlaps: 2012→(2010-12), 2015→(2013-15), 2018→(2016-18), 2021→(2019-21), 2024→(2022-24).
+**Those five alone cover 2010–2024 in full.** Extraction verified with `pdfplumber` on all
+five. The 2022 and 2023 editions resist the same parser but are redundant, so it does not
+matter.
+
+Per school: EMIS No, Centre No, name, district, quintile, and per year `No Progressed`,
+`Total Wrote`, `Total Achieved`, `% Achieved`.
+
+### `processed/school_year_panel.csv.gz` — the model's input
+One row per school per year, folded from all 233 masterlists. Committed (gzipped, 7MB;
+the plain CSV is 74MB). `pandas.read_csv` opens `.csv.gz` directly.
+
+**478,761 rows — 19 consecutive years, 2007–2025, all nine provinces.**
+
+| Column | Filled |
+|---|---|
+| learners | 100% |
+| phase | 99% |
+| quintile | 97% |
+| educators | 94% |
+
+184,675 of those rows are secondary or combined schools — the Grade 10–12 population the
+model actually targets.
+
+Three defects were found and fixed while building this, none of which raised an error and
+all of which would have quietly skewed the trends:
+
+- The 2019 files spell the key column `NatEMIS`, not `NatEmis`. Exact matching dropped the
+  entire year. Header matching is now case-insensitive.
+- Province codes are unstable — `KZ`/`KZN` and `GT`/`GP` split two provinces in two, so
+  the panel reported eleven provinces for a country with nine.
+- Gauteng's 2023 file has its key column headed `G`, truncated upstream. 3,000 schools were
+  lost. The column is now recovered by inspecting its values rather than its name.
+
+Phase is also absent from the older files under that name (they use `Phase_DoE`), which
+left 43% of rows with no phase — and phase is how a secondary school is identified at all.
+Stable attributes are now carried across years for the same school.
 
 ### `01_DBE_EMIS/` — WCG ArcGIS CSVs (1,480 public + 343 independent)
-Weekly-refreshed, already machine-readable. Redundant with the masterlists for quintile and
-identity, but adds medium of instruction and a current open/closed status.
-
-### `04_NSC_Results/NSC_School_Performance_Report_2024.pdf` — 155 pages
-Extraction verified with `pdfplumber`. Per school: EMIS No, Centre No, name, district,
-quintile, and for **each of 2022, 2023, 2024**: `No Progressed`, `Total Wrote`,
-`Total Achieved`, `% Achieved`. Western Cape occupies pages 143–152.
+Weekly-refreshed. Now largely redundant: the masterlists carry GPS, district and quintile
+for **all nine provinces**, not just the Western Cape. Keep for medium-of-instruction and
+current open/closed status.
 
 ### `02_No_Fee_Schools/` — now redundant
 Both PDFs parse fine (EMIS, name, phase, address, district, quintile, learner count), but
