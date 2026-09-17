@@ -31,19 +31,40 @@ if missing:
 if "emis" not in st.session_state:
     st.session_state.emis = None
 
+# Ordered as the work was done, because that is also the order the argument
+# has to be made in: audit the data before claiming anything from it, explain
+# the method before showing the model, show the model before showing what it
+# ranks, and only then argue that it is safe to run and worth paying for.
+#
+# Kept flat rather than grouped into sections - the numbers carry the sequence,
+# and a flat bar is what the top navigation renders cleanly.
 page = st.navigation([
-    st.Page("app_pages/overview.py", title="Overview", icon=":material/home:", default=True),
-    # The audit comes before the ranking deliberately. It is the challenge's own
-    # question - find the discrepancies - and it is also the reason anything
-    # downstream can be trusted.
-    st.Page("app_pages/data_audit.py", title="Data audit", icon=":material/rule:"),
-    st.Page("app_pages/risk_list.py", title="Risk list", icon=":material/format_list_numbered:"),
-    st.Page("app_pages/school.py", title="School profile", icon=":material/school:"),
-    st.Page("app_pages/simulator.py", title="Score simulator", icon=":material/tune:"),
-    st.Page("app_pages/final_model.py", title="The final model", icon=":material/analytics:"),
-    st.Page("app_pages/method.py", title="How we built it", icon=":material/science:"),
-    st.Page("app_pages/security.py", title="Security", icon=":material/shield:"),
-    st.Page("app_pages/business.py", title="Business model", icon=":material/payments:"),
+    st.Page("app_pages/overview.py", title="Overview",
+            icon=":material/home:", default=True),
+
+    # What is wrong with the data, before anything is claimed from it.
+    st.Page("app_pages/data_audit.py", title="1 · Data audit",
+            icon=":material/rule:"),
+    st.Page("app_pages/method.py", title="2 · How we built it",
+            icon=":material/science:"),
+
+    # The model, and every number it should be judged on.
+    st.Page("app_pages/final_model.py", title="3 · The final model",
+            icon=":material/analytics:"),
+
+    # What it produces: the ranking, one school, and a what-if.
+    st.Page("app_pages/risk_list.py", title="4 · Risk list",
+            icon=":material/format_list_numbered:"),
+    st.Page("app_pages/school.py", title="5 · School profile",
+            icon=":material/school:"),
+    st.Page("app_pages/simulator.py", title="6 · Score simulator",
+            icon=":material/tune:"),
+
+    # Why it is safe to run, and how it pays for itself.
+    st.Page("app_pages/security.py", title="7 · Security",
+            icon=":material/shield:"),
+    st.Page("app_pages/business.py", title="8 · Business model",
+            icon=":material/payments:"),
 ], position="top")
 
 page.run()
