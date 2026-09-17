@@ -1,4 +1,4 @@
-"""School learner-loss early warning: the independent track's app.
+"""The Missing List — a school-level learner-loss early warning system.
 
 Run from the repository root:
 
@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
 
 from independent.src.paths import MODEL_FRAME, out  # noqa: E402
 
-st.set_page_config(page_title="Learner-loss early warning", page_icon=":material/school:",
+st.set_page_config(page_title="The Missing List", page_icon=":material/school:",
                    layout="wide")
 
 missing = [p for p in (out("model.json"), out("ranking_2025.csv"), MODEL_FRAME) if not Path(p).exists()]
@@ -40,6 +40,7 @@ page = st.navigation([
     st.Page("app_pages/risk_list.py", title="Risk list", icon=":material/format_list_numbered:"),
     st.Page("app_pages/school.py", title="School profile", icon=":material/school:"),
     st.Page("app_pages/simulator.py", title="Score simulator", icon=":material/tune:"),
+    st.Page("app_pages/final_model.py", title="The final model", icon=":material/analytics:"),
     st.Page("app_pages/method.py", title="How we built it", icon=":material/science:"),
     st.Page("app_pages/security.py", title="Security", icon=":material/shield:"),
     st.Page("app_pages/business.py", title="Business model", icon=":material/payments:"),
@@ -47,5 +48,5 @@ page = st.navigation([
 
 page.run()
 
-st.caption("Independent track · DataQuest hackathon · Data: DBE EMIS masterlists 2007–2025 (open data). "
-           "School-level only; no learner records.")
+st.caption("The Missing List · DataQuest hackathon · Data: DBE EMIS masterlists 2007–2025 and NSC "
+           "School Performance Reports 2008–2024, both open. School-level only; no learner records.")

@@ -53,6 +53,21 @@ LABELS = {
     "phase": "secondary / combined",
     "nofee": "fee status",
     "urbanrural": "urban / rural",
+
+    # From the matric results extracted out of the exam report PDFs. Phrased
+    # the way a district official would say them, because these labels are
+    # what appears in a school's three reasons.
+    "throughput": "share of the school reaching matric",
+    "throughput_chg1": "change in matric share over the last year",
+    "throughput_chg3": "change in matric share over three years",
+    "throughput_vol": "how erratic the matric share has been",
+    "progressed_share": "share of matric class advanced without meeting requirements",
+    "progressed_share_chg1": "change in learners advanced without meeting requirements",
+    "wrote_chg1": "change in matric class size over the last year",
+    "wrote_chg3": "change in matric class size over three years",
+    "pass_rate": "matric pass rate",
+    "pass_rate_chg1": "change in matric pass rate",
+    "matric_age": "how old the school's latest matric record is",
 }
 
 

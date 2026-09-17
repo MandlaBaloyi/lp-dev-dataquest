@@ -4,16 +4,24 @@ import streamlit as st
 
 from independent.app.data import BLUE, MUTED, ORANGE, PROVINCES, model_json, read_json, schools_2025
 
-m = model_json()["metrics"]
+model = model_json()
+m = model["metrics"]
+audit = read_json("data_audit_summary.json")
 eda = read_json("eda_numbers.json")
 log = read_json("cleaning_log.json")
 df = schools_2025()
 
 st.title("Which secondary schools are about to lose learners?")
 st.markdown(
-    "South Africa publishes how many learners leave school before matric, but not **which schools** "
-    "they leave. This tool ranks every secondary and combined school on the risk that it loses "
-    "learners faster than its province over the next two years, and says **why**."
+    "More than 40% of South African learners who start Grade 1 never finish matric. That figure is "
+    "published every year. What does not exist, anywhere, is the same figure **school by school** — "
+    "so support goes where there is information, and at school level that information has never "
+    "been assembled."
+)
+st.markdown(
+    "This tool assembles it. It audits every school record the country publishes, repairs what it "
+    "finds, then ranks every secondary and combined school on the risk of losing learners faster "
+    "than its province over the next two years — and says **why** for each one."
 )
 
 with st.container(horizontal=True):
@@ -31,14 +39,14 @@ with st.container(horizontal=True):
               delta_color="off", delta_arrow="off", border=True)
 
 st.subheader("How it works")
-a, b, c = st.columns(3)
+a, b, c, d = st.columns(4)
 with a.container(border=True, height="stretch"):
-    st.markdown("**:material/database: 1 · Open data, cleaned**")
+    st.markdown("**:material/rule: 1 · Audit the data first**")
     st.markdown(
-        f"{log['rows_in']:,} school-year rows from DBE masterlists, 2007–2025. "
-        f"We found and fixed ten silent defects, including a corrupt 2017 snapshot, "
-        f"{log['D4_latlon_swapped']:,} swapped coordinates and phase labels that change over time. "
-        f"The result is **{log['rows_out']:,} rows covering {log['schools_out']:,} FET schools**."
+        f"Seven automated detectors over {audit['records_scanned']:,} published school records. "
+        f"They return **{audit['total_findings']} discrepancies, {audit['high']} severe** — a year "
+        "that loses 1.4 million learners and gets them back, a province published under two codes, "
+        "schools placed in the Atlantic Ocean. None of them raises an error."
     )
 with b.container(border=True, height="stretch"):
     st.markdown("**:material/trending_down: 2 · A signal we can measure**")
@@ -49,11 +57,19 @@ with b.container(border=True, height="stretch"):
         f"school loses {eda['median_learners_lost_by_losers']:.0f} learners."
     )
 with c.container(border=True, height="stretch"):
-    st.markdown("**:material/scoreboard: 3 · A scorecard anyone can read**")
+    st.markdown("**:material/school: 3 · Add the matric evidence**")
     st.markdown(
-        "Ten factors, each split into bands worth a fixed number of points. **Lower score = higher "
-        "risk.** Every school's list entry shows the three factors that cost it the most points, "
-        "so an official can check them against the masterlist."
+        "100,429 matric records extracted from 13 exam report PDFs, no two of which share a column "
+        "layout. They carry what a headcount cannot: how many learners actually reached the end of "
+        "school. **Three of those variables earned a place in the final model.**"
+    )
+
+with d.container(border=True, height="stretch"):
+    st.markdown("**:material/scoreboard: 4 · A scorecard anyone can read**")
+    st.markdown(
+        f"{len(model['features_in_model'])} factors, each split into bands worth a fixed number of "
+        "points. **Lower score = higher risk.** Every school shows the three factors that cost it "
+        "the most, so an official can check them against the source."
     )
 
 left, right = st.columns([3, 2])

@@ -10,11 +10,14 @@ Target (see REPORT.md for why):
 
 Every feature for year t uses only rows from years <= t.
 """
+import os
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import BallTree
 
-from independent.src.paths import CLEAN_PANEL, MODEL_FRAME
+from independent.src.paths import CLEAN_PANEL, MODEL_FRAME, ROOT
+from src.common.emis import normalise as normalise_emis
+from src.model.merged import matric_features
 
 HORIZON = 2
 EXCESS_LOSS = -0.15
@@ -35,6 +38,24 @@ SPLITS = {
 NUMERIC = ["log_learners", "ler", "chg1", "chg1_rel_prov", "chg3", "vol", "peak_ratio",
            "edu_chg1", "years_observed", "district_chg1", "district_schools",
            "nearby_5km", "nearby_10km", "nearby_chg1", "size_vs_nearby", "quintile"]
+
+# From the matric results the primary track extracted out of 13 report PDFs.
+# None of it is derivable from an enrolment headcount: how many learners
+# actually reached the end of school, how many were advanced without meeting
+# the requirements, and whether either is worsening.
+# Pass rate and achievement counts are deliberately absent. The report
+# editions published for these years carry only the number who wrote and the
+# number progressed - the four-measure layout with "Total Achieved" and
+# "% Achieved" appears in none of them, so pass_rate extracted at 0% across all
+# 17 years and achieved at 7.6%. Carrying an empty column would put a variable
+# in the model that can never be learned from, and it breaks the tree benchmark
+# outright. What remains is still the useful half: how large the matric cohort
+# was, and how many of it were advanced without meeting requirements.
+MATRIC = ["throughput", "throughput_chg1", "throughput_chg3", "throughput_vol",
+          "progressed_share", "progressed_share_chg1",
+          "wrote_chg1", "wrote_chg3"]
+
+NUMERIC = NUMERIC + MATRIC + ["matric_age"]
 CATEGORICAL = ["province", "sector", "phase", "nofee", "urbanrural", "closing_flag"]
 
 
@@ -151,11 +172,74 @@ def assign_split(year):
     return "unused"
 
 
+def add_matric(df):
+    """Join matric outcomes onto the enrolment frame, keyed on school and year.
+
+    The outcome being predicted is measured from year Y to Y+2, so matric
+    figures for year Y and earlier are all that may be used. matric_features
+    builds them that way - every change is a backward difference - so the join
+    is on the feature year and nothing reaches forward.
+
+    Schools with no matric record keep NaN rather than a zero. A zero would say
+    "no candidates", which is a claim about the school; NaN says "we have no
+    figure", which is the truth. Weight of evidence bins missing as its own
+    level, so the distinction survives into the model.
+    """
+    nsc_path = os.path.join(ROOT, "datasets", "processed", "nsc_results.csv")
+    if not os.path.exists(nsc_path):
+        for column in MATRIC:
+            df[column] = np.nan
+        return df
+
+    nsc = pd.read_csv(nsc_path, dtype={"emis": str})
+
+    # The two tracks carry the identifier differently - one as an integer, the
+    # other as text with the leading zero the source sometimes prints. Both are
+    # normalised to bare digits before the join, or it matches nothing and
+    # quietly returns a frame of NaN instead of failing.
+    nsc["emis"] = nsc["emis"].map(normalise_emis)
+    sizes = df[["emis", "year", "learners"]].drop_duplicates().copy()
+    sizes["emis"] = sizes["emis"].map(normalise_emis)
+
+    extra = matric_features(nsc, sizes)
+
+    keyed = df.copy()
+    keyed["emis_key"] = keyed["emis"].map(normalise_emis)
+    extra = extra.rename(columns={"emis": "emis_key"})
+    merged = keyed.merge(extra, on=["emis_key", "year"], how="left")
+
+    # Carry each school's most recent matric record forward.
+    #
+    # Joining on the exact year leaves the 2025 scoring rows empty, because the
+    # 2025 exams have not been reported yet - so the live ranking, which is the
+    # actual product, would score every school with this evidence missing. A
+    # school's 2024 matric figures are perfectly good information about it in
+    # 2025; they are simply a year old.
+    #
+    # The fill only ever looks backwards, so it cannot reach into the future
+    # for a training row either. matric_age records how stale the carried
+    # figure is, which lets the model discount an old one rather than treat it
+    # as current.
+    merged = merged.sort_values(["emis_key", "year"])
+    by_school = merged.groupby("emis_key", sort=False)
+
+    observed_year = merged["year"].where(merged["throughput"].notna())
+    merged["matric_seen_year"] = by_school.apply(
+        lambda g: observed_year.loc[g.index].ffill(), include_groups=False
+    ).reset_index(level=0, drop=True)
+
+    for column in MATRIC:
+        merged[column] = by_school[column].ffill()
+
+    merged["matric_age"] = merged["year"] - merged["matric_seen_year"]
+    merged = merged.drop(columns="matric_seen_year").drop(columns="emis_key")
+    return merged.sort_index() if merged.index.is_monotonic_increasing else merged.reset_index(drop=True)
 def build(clean):
     df = clean.reset_index(drop=True)
     df = school_history(df)
     df = context(df)
     df = outcome(df)
+    df = add_matric(df)
     df["split"] = df.year.map(assign_split)
     df["nofee"] = df.nofee.map({1.0: "NO_FEE", 0.0: "FEE"})
     df["closing_flag"] = df.closing_flag.map({1: "CLOSING", 0: "OPEN"})
