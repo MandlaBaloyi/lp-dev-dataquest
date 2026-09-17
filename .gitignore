@@ -6,7 +6,8 @@
 # fetch scripts in src/ under version control instead of the payload. Anyone can run
 # them to rebuild this folder exactly. The cleaned tables in datasets/processed/ ARE
 # committed, because those are the project's own work.
-datasets/raw/
+datasets/raw/*
+!datasets/raw/README.md
 
 
 # Python bytecode
