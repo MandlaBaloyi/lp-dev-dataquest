@@ -1,13 +1,13 @@
 # Leftover backup from repo history fix — not part of this project
 .git-backup-old-dataquest-project/
 
-# Raw source data: several hundred MB of government spreadsheets and PDFs covering
-# all nine provinces. Every file here is re-downloadable with no login, so we keep the
-# fetch scripts in src/ under version control instead of the payload. Anyone can run
-# them to rebuild this folder exactly. The cleaned tables in datasets/processed/ ARE
-# committed, because those are the project's own work.
-datasets/raw/*
-!datasets/raw/README.md
+# Raw source data IS committed, deliberately. It was excluded at first on size
+# grounds, and that was the wrong call for this project: the whole argument rests
+# on evidence a judge can check, and "run our script and trust that the department
+# still serves the same file" is weaker than shipping the file. The NSC PDFs matter
+# most - we extracted them ourselves because no machine-readable version exists, so
+# without them the extraction cannot be independently verified.
+# Largest file is 26 MB, under GitHub's 100 MB per-file limit.
 
 
 # Python bytecode
