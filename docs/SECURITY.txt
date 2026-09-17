@@ -1,0 +1,178 @@
+SECURITY AND PRIVACY — THE POSITION, THE CONTROLS, AND THE GAP
+The Missing List · DataQuest · Theme: Education
+=========================================================
+
+The strongest security claim this system can make is that it holds nothing
+worth stealing. That is a design decision rather than a lucky consequence,
+and this document sets out what was given up to make it true.
+
+Confidentiality is the easy half here, and close to free, because there is no
+personal data anywhere in the system. The half that actually needs controls is
+INTEGRITY: every input is downloaded over the internet from a government
+portal, and the output is a list that directs public money.
+
+
+THE POSITION
+---------------------------------------------------------
+
+  Personal records held        0      by design, not by policy
+  Smallest unit of analysis    School never a learner
+  Data sources                 Public no login, no licence, no NDA
+  Executable model artefacts   0      JSON, never a pickle
+
+The safest personal data is the personal data never collected. This system
+holds no learner records, no names, no identity numbers and no household
+information - not because they are well protected, but because they were
+never taken in.
+
+
+WHAT WE DELIBERATELY GAVE UP
+---------------------------------------------------------
+
+We could have built a more accurate model. Learner-level records would
+identify which individual children are at risk and would almost certainly
+predict better than school-level aggregates. We did not pursue them.
+
+Those records are protected under POPIA, and a hackathon team has no lawful
+basis to process them. A tool that names children also creates a register of
+vulnerable minors, and that register becomes a liability the moment it
+exists, regardless of how carefully it is held.
+
+So the system was scoped to answer WHICH SCHOOLS NEED SUPPORT rather than
+WHICH CHILDREN ARE FAILING. It is the weaker question and the right one.
+
+
+THE CONTROLS
+---------------------------------------------------------
+
+1. NO PERSONAL INFORMATION
+   Every record describes a school: enrolment counts, staffing counts,
+   funding band, location, matric candidate totals. No field identifies a
+   person, so there is no personal information to breach, leak or subpoena.
+
+2. PUBLIC SOURCES ONLY
+   All inputs are published openly by the Department of Basic Education.
+   No credential is used to obtain them, so no credential can be stolen from
+   us and no access agreement can be violated.
+
+3. INPUT VALIDATION AT THE BOUNDARY
+   Every download is checked against its format's magic bytes before it is
+   written to disk. An .xlsx must begin with a ZIP header; a PDF must begin
+   with %PDF.
+       src/fetch/emis_masterlists.py:85    if data[:2] != b"PK"
+       src/fetch/nsc_reports.py:62         if data[:4] != b"%PDF"
+   A government portal returning an HTML error page under a spreadsheet's
+   filename is a routine event. It is rejected at the boundary rather than
+   parsed into silent nonsense downstream.
+
+4. NOTHING EXECUTABLE IN THE ARTEFACTS
+   The trained model ships as outputs/model.json and outputs/scorecard.csv -
+   inert data, read with a JSON parser. There is no pickle, no joblib file
+   and no eval or exec anywhere in the codebase.
+
+   This is not incidental. Loading a pickled model executes whatever is
+   inside it, so the usual way to ship a model is also the usual way to ship
+   arbitrary code execution. A scorecard does not need to be a program, so
+   it is not one.
+
+5. REPRODUCIBLE AND AUDITABLE
+   Every dataset is rebuilt from source by version-controlled scripts. Any
+   figure in the application traces back to the published file it came from,
+   so a disputed result can be checked rather than argued about.
+
+6. CONTINUOUS INTEGRITY CHECKING
+   Seven detectors run over 572,607 records and return 19 findings. They
+   were built to audit the department's data, but they are equally an
+   integrity control on our own: a corrupted, truncated or altered source
+   file changes totals, breaks identifier continuity, or produces impossible
+   values - and all three are things the scan already looks for.
+
+7. NO BLACK BOX
+   The scorecard's weights are published in full. A school can see exactly
+   why it was ranked where it was. This is both a fairness property and a
+   security one, because an opaque score invites the suspicion that it was
+   tampered with.
+
+8. LEAST PRIVILEGE ON DEPLOYMENT
+   The application is read-only over pre-computed outputs. It holds no
+   database credentials, accepts no uploads and writes nothing back, so the
+   running service has no privileges worth escalating.
+
+
+WHAT WE ARE ACTUALLY DEFENDING AGAINST
+---------------------------------------------------------
+
+Listing controls without naming a threat proves nothing. These are the five
+realistic failure modes, and what stands in the way of each.
+
+  [covered] A SOURCE FILE IS CORRUPTED, TRUNCATED OR REPLACED UPSTREAM
+      Magic bytes are checked on download; the audit then scans for
+      collapsing totals, broken identifier continuity and impossible values.
+      This is not hypothetical. The same scan caught OUR OWN PDF parser
+      producing 14,005 impossible records - the strongest evidence available
+      that it works on data nobody expected to be wrong.
+
+  [covered] SOMEONE EDITS THE REGISTER TO MOVE A SCHOOL UP OR DOWN
+      Every output is regenerable from public sources by committed scripts,
+      so an altered ranking is caught by rebuilding and comparing. Tampering
+      is not prevented so much as made pointless, because the truth stays
+      independently recoverable by anyone who wants to check.
+
+  [covered] A MALICIOUS MODEL ARTEFACT IS SUBSTITUTED
+      The artefact is JSON with no execution path. The worst a substituted
+      file can do is produce wrong scores, which the row above catches. It
+      cannot run code on the machine that loads it.
+
+  [n/a]     LEARNER PERSONAL DATA LEAKS
+      None is held at any stage, including in the raw downloads. There is no
+      incident available to have.
+
+  [GAP]     A COMPROMISED DEPENDENCY
+      Partially covered, and this is the real gap. Dependencies are declared
+      and minimum-pinned in requirements.txt, but they are not pinned to
+      exact versions and not hash-locked. A deployment inside a department
+      would need a lockfile and a vetted internal mirror.
+
+      We are naming this rather than leaving it off the list. A security
+      section with no gap in it has not been written honestly.
+
+
+IF THIS WERE DEPLOYED IN A DEPARTMENT
+---------------------------------------------------------
+
+The current build is a read-only analysis tool. Putting it inside a
+provincial department would add four things, and they are where the real
+risk would sit:
+
+  AUTHENTICATION AND ROLE SEPARATION
+    A district official should see their own district; a provincial planner
+    should see the province. Not a confidentiality control, since the data is
+    public, but an accountability one - it records who acted on which school.
+
+  AN AUDIT LOG OF DECISIONS, NOT DATA
+    The sensitive artefact in deployment is not the enrolment figures. It is
+    the record of which schools were flagged and what was done about them.
+    That log needs retention rules and access control of its own.
+
+  A DEPENDENCY LOCKFILE AND AN INTERNAL MIRROR
+    The gap named above, closed.
+
+  A PUBLISHED MODEL CARD AND A REVIEW CYCLE
+    A score that directs public money should be re-validated annually and
+    withdrawn if it stops performing. A model nobody re-checks is a
+    governance risk long before it is a technical one.
+
+
+THE HONEST RISK
+---------------------------------------------------------
+
+Misuse is the real exposure, and it is not a technical one.
+
+A ranked list of schools can be read as a league table and used to punish the
+schools at the top rather than support them. That would invert the entire
+purpose of the system.
+
+The mitigation is presentation, not encryption: the output is framed as a
+support-allocation list, every score carries the reasons behind it, and the
+model's accuracy is stated plainly so nobody mistakes a triage signal for a
+verdict on a school.

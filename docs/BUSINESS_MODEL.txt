@@ -61,9 +61,39 @@ VALUE OVER WHAT EXISTS
   7,681 secondary schools, scores them against each other, and explains each
   score. The comparison across every school is the part nobody currently has.
 
-  Measured: the worst-scored tenth loses learners at 26.8% against 1.95% in
-  the best-scored tenth. Working the top of the list is roughly twice as
-  productive as working at random.
+  Measured: the worst-scored tenth loses learners at 28.5% against 2.43% in
+  the best-scored tenth - a lift of 2.34x. Working the top of the list is
+  more than twice as productive as working at random.
+
+WHAT THE PROBLEM COSTS
+  A business case needs both halves. R612,000 a year means nothing quoted on
+  its own; it means something set against what it is trying to prevent.
+
+  212,893 learners   sit in the 842 schools the 2025 register flags as
+                     priority. That is the population the list points at.
+
+  90 learners        is the median two-year enrolment drop at a flagged
+                     school that does go on to lose them. Measured across
+                     2,807 such cases in the test years, not assumed.
+
+  ~21,600 learners   is what that comes to across the 28.5% of the priority
+                     tier that loses - roughly 240 schools at 90 each.
+
+  ~R200,000          is approximately what the state has already spent
+                     educating one learner by the time they reach Grade 10,
+                     at published per-learner spending near R20,000 a year.
+                     An estimate, and a conservative one.
+
+  THE COMPARISON.
+  The tool costs R612,000 a year. The state has already invested more than
+  that in three learners who reach Grade 10. If the register changes where
+  support goes for even a handful of the 21,600 learners at risk in the
+  schools it flags, it has paid for itself many times over.
+
+  The argument is not that the tool is cheap. It is that the tool is
+  negligible against what is already being spent on the learners it exists
+  to keep in school.
+
 
 HOW IT IS FUNDED
   Not sold to schools or families. It is a tool for the people who allocate

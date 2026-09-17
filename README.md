@@ -191,7 +191,8 @@ submission/   presentation materials
 | `docs/DATA_DICTIONARY.txt` | Every column, fill rate, and how it is treated |
 | `docs/METHODOLOGY.md` | Cleaning, target, model, evaluation |
 | `docs/CLEANING_DECISIONS.md` | Every cleaning rule with its row cost |
-| `docs/BUSINESS_MODEL.txt` | Who pays, what it costs, how it scales |
+| `docs/BUSINESS_MODEL.txt` | Who pays, what it costs, what the problem costs |
+| `docs/SECURITY.txt` | The position, eight controls, the threat model, the gap |
 | `docs/DEMO_SCRIPT.md` | Seven-minute walkthrough |
 
 ## What we are honest about

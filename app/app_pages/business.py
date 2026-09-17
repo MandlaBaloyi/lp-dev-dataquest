@@ -11,6 +11,7 @@ import streamlit as st
 from app.data import BLUE, MUTED, ORANGE
 
 SCHOOLS = 12_443
+PRIORITY = 842
 
 st.title("What it costs, and who pays")
 st.markdown(
@@ -27,6 +28,44 @@ with st.container(horizontal=True):
               delta_color="off", delta_arrow="off", border=True)
     st.metric("Data acquisition cost", "R0", "every source is public",
               delta_color="off", delta_arrow="off", border=True)
+
+st.divider()
+st.subheader("What the problem costs")
+
+st.markdown(
+    "A business case needs both halves. The cost of the tool is easy to state and "
+    "meaningless on its own — it only means something against the cost of not having it."
+)
+
+a, b, c = st.columns(3)
+with a.container(border=True, height="stretch"):
+    st.markdown(":material/groups: **212,893 learners**")
+    st.caption(
+        f"sit in the {PRIORITY:,} schools this register flags as priority for 2025. That is "
+        "the population the list is pointing at.")
+with b.container(border=True, height="stretch"):
+    st.markdown(":material/trending_down: **90 learners**")
+    st.caption(
+        "is the median two-year enrolment drop at a flagged school that does go on to "
+        "lose them — measured across 2,807 such cases in the test years, not assumed. "
+        "Applied to the 28.5% of the priority tier that loses, that is roughly 21,600 "
+        "learners.")
+with c.container(border=True, height="stretch"):
+    st.markdown(":material/school: **~R200,000 per learner**")
+    st.caption(
+        "is roughly what the state has already spent educating a learner by the time they "
+        "reach Grade 10, at published per-learner spending of about R20,000 a year. An "
+        "estimate, and a conservative one.")
+
+st.error(
+    """**The comparison that matters.** Running this costs **R612,000 a year**. The state
+has already invested more than that in **three learners** who reach Grade 10. If the
+register changes where support goes for even a handful of the 21,600 learners at risk in
+the schools it flags, it has paid for itself many times over.
+
+That is the argument — not that the tool is cheap, but that it is negligible against what
+is already being spent on the learners it is trying to keep in school."""
+)
 
 st.divider()
 st.subheader("What we spend")
