@@ -1,0 +1,175 @@
+THE DATASETS — WHERE THEY COME FROM AND HOW THEY JOIN
+The Missing List · DataQuest · Theme: Education
+=========================================================
+
+Every source is published openly by the South African government. None
+required a login, a licence, or an access agreement. All of it is re-fetched
+by script, so nothing here depends on a file somebody once downloaded.
+
+
+1. WHAT WE STARTED WITH
+---------------------------------------------------------
+
+SOURCE A — EMIS SCHOOL MASTERLISTS
+  Publisher   Department of Basic Education, EMIS unit
+  Where       education.gov.za/Programmes/EMIS/EMISDownloads.aspx
+  Form        234 Excel files: one per province, per quarter
+  Covers      2007-2025, all nine provinces
+  Holds       one row per school per year - enrolment, staffing, funding
+              band, phase, district, coordinates, open/closed status
+  Fetched by  src/fetch/emis_masterlists.py
+
+SOURCE B — NSC SCHOOL PERFORMANCE REPORTS
+  Publisher   Department of Basic Education
+  Where       education.gov.za/Resources/Reports.aspx
+  Form        13 PDF reports, 2012-2024
+  Covers      2008-2024 (each edition carries three to five years)
+  Holds       one row per school per year - matric candidates, learners
+              progressed, learners achieving, pass rate
+  Fetched by  src/fetch/nsc_reports.py
+  Extracted by src/build/nsc_results.py
+
+  This one is not published as a table. It is printed inside PDFs, and no
+  two editions share a column layout. Extracting it is a project in itself,
+  and is documented in section 5.
+
+SOURCE C — STATS SA GENERAL HOUSEHOLD SURVEY
+  Used for context on why learners leave, at province level. Not a model
+  input: it has no school identifier, so it cannot be joined to a school.
+
+
+2. WHAT THEY BECAME
+---------------------------------------------------------
+
+  datasets/processed/school_year_panel.csv.gz
+    478,761 rows x 20 columns
+    Every school of every type, 2007-2025, as published. 29,655 schools.
+    This is the raw joined panel - deliberately uncleaned, so the audit has
+    something honest to run against.
+
+  datasets/processed/nsc_results.csv
+    93,846 rows x 12 columns
+    Matric results, 8,093 schools, 17 years.
+
+  datasets/processed/clean_panel.csv.gz
+    The panel after cleaning, restricted to schools that can hold a matric
+    class. Cleaning rules and their row costs are in CLEANING_DECISIONS.md.
+
+  datasets/processed/model_frame.csv.gz
+    146,944 rows x 47 columns
+    The clean panel plus every engineered feature and the target. This is
+    what the model trains on.
+
+
+3. HOW THEY JOIN
+---------------------------------------------------------
+
+THE KEY IS THE EMIS NUMBER
+  Every school in South Africa has one. It is the only identifier shared
+  across both sources, and everything depends on it.
+
+IT IS NOT PUBLISHED CONSISTENTLY
+  The same school appears as 0100000217 in one file and 100000217 in
+  another. Joining on the raw string matches a fraction of what it should,
+  and - this is the dangerous part - it fails silently. You get a smaller
+  table, not an error.
+
+  So every identifier is normalised before any join: strip non-digits,
+  strip leading zeros. src/common/emis.py, and it is unit tested.
+
+THE JOIN, STEP BY STEP
+  1. Fold 234 provincial spreadsheets into one panel, keyed on
+     (emis, year). Later quarters supersede earlier ones for the same year.
+  2. Extract matric results from 13 PDFs into (emis, year) rows.
+  3. Normalise both identifiers.
+  4. Left join matric onto the panel.
+  5. Carry each school's most recent matric record forward, recording how
+     old it is (see section 4).
+
+MATCH RATES, MEASURED
+  ArcGIS reference list -> panel          1,480 / 1,480   100%
+  No-fee schools list   -> panel            893 / 894      99%
+  NSC results           -> panel                          ~92%
+
+  The 8% that do not match are mostly exam centres and closed schools that
+  appear in results but not in a current masterlist.
+
+
+4. THE TIMING RULE
+---------------------------------------------------------
+
+The outcome is measured from year Y to Y+2. So every feature must be built
+from year Y or earlier, or the model is predicting the past from the future.
+
+That rule decides two things that look arbitrary otherwise:
+
+  Every change is a backward difference. A three-year enrolment trend at
+  2020 uses 2017 to 2020, never 2021.
+
+  Matric records are carried forward, never backward. Scoring 2025 uses a
+  school's 2024 matric figures, because the 2025 exams have not happened.
+  A 'matric_age' column records how stale the carried figure is, so the
+  model can discount an old one rather than treat it as current.
+
+  Without the carry-forward the 2025 register - the actual product - would
+  score every school with its matric evidence missing. With it, 79% of the
+  2025 rows carry matric data at a median age of one year.
+
+
+5. THE MATRIC EXTRACTION, AND THE BUG IN IT
+---------------------------------------------------------
+
+The reports do not share a layout. Across 13 editions we found four:
+
+  1 measure per year    wrote
+  2 measures per year    progressed, wrote
+  3 measures per year    wrote, achieved, pass rate
+  4 measures per year    progressed, wrote, achieved, pass rate
+
+Worse, a single file can contain more than one. The 2012 edition declares
+five years of "Wrote" in its header and then prints data pages carrying
+three years of wrote, achieved and pass rate.
+
+OUR FIRST PARSER TRUSTED THE HEADER, AND WAS WRONG
+  Forcing one layout onto rows that used another shifted every field. The
+  result passed every row count:
+
+    14,005 records claimed more learners were advanced into matric than
+           sat the exam - impossible
+    87,055 records carried a quintile outside 1-5
+         0 records had a pass rate, which looked so much like a field the
+           source does not publish that it was removed from the model
+
+THE FIX, AND THE PROOF
+  Each row's layout is now derived from its own shape, preferring the widest
+  published form. Two guards catch what shape-fitting cannot:
+
+    progressed may never exceed wrote
+    where a report prints achieved and pass rate, the arithmetic must
+    agree - the rate is achieved divided by wrote
+
+  That second check is the one that settles it. A misaligned row cannot
+  satisfy it by chance. It now holds on 82,979 of 82,979 checkable records.
+
+    records            71,291 -> 93,846
+    progressed > wrote 14,005 -> 0
+    quintile valid          - -> 96.0%
+    achieved             7.6% -> 88.4%
+    pass rate            0.0% -> 88.4%
+
+  Pass rate turned out to be the strongest single variable in the model.
+  It had been discarded on evidence that was our own bug.
+
+
+6. WHAT IS NOT COMMITTED
+---------------------------------------------------------
+
+datasets/raw/ is gitignored. It runs to several hundred megabytes and every
+byte is re-downloadable without a login, so the fetch scripts are version
+controlled in its place. Two commands rebuild it exactly:
+
+    python -m src.fetch.emis_masterlists
+    python -m src.fetch.nsc_reports
+
+The built tables in datasets/processed/ ARE committed, because those are the
+project's own work rather than somebody else's file.

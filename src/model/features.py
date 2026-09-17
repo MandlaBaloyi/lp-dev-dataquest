@@ -1,146 +1,262 @@
-"""Building the predictors.
+"""Stage 2 - cleaned panel into a model frame: one row per school per year,
+features known at that year, and the outcome two years later.
 
-Raw columns describe a school at a moment. Risk is about direction and context,
-so most of what the model uses is constructed here.
+    python -m src.features
 
-THE TIMING RULE, WHICH EVERYTHING ELSE FOLLOWS FROM
+Target (see REPORT.md for why):
+    loss = 1 when a school's enrolment change from year t to t+2 is at least
+    15 percentage points worse than the median change of in-scope schools in
+    its province over the same window.
 
-The outcome is observed in matric year Y. The enrolment it is measured against
-is year Y-2, when that cohort was still in the school. So Y-2 is the moment a
-prediction would actually be made, and every feature is computed as it stood
-then, using that year and earlier only.
-
-This is not caution for its own sake. A feature built from year Y would be
-predicting the past from the future: the model would score beautifully in
-testing and have nothing to say about a cohort still in school, which is the
-only cohort anyone can still help.
-
-Each feature is computed per school per year, from that year backwards. The
-training table then joins matric year Y to features at year Y-2.
+Every feature for year t uses only rows from years <= t.
 """
+import os
 import numpy as np
 import pandas as pd
+from sklearn.neighbors import BallTree
 
-# Cape Town, Johannesburg, Durban, Gqeberha, Bloemfontein, Polokwane.
-# Distance to the nearest of these stands in for isolation, measured rather
-# than inferred from an urban/rural label that is missing on many records.
-CITIES = [(-33.92, 18.42), (-26.20, 28.05), (-29.86, 31.02),
-          (-33.96, 25.60), (-29.12, 26.21), (-23.90, 29.47)]
+from src.common.paths import CLEAN_PANEL, MODEL_FRAME, ROOT
+from src.common.emis import normalise as normalise_emis
+from src.model.merged import matric_features
 
-EARTH_RADIUS_KM = 6371
+HORIZON = 2
+EXCESS_LOSS = -0.15
+MIN_LEARNERS = 100
+EARTH_KM = 6371.0
+
+SPLITS = {
+    # Outcomes for the last training year are observed in 2018, before the
+    # first validation year. Validation outcomes are observed by 2021, the
+    # first test year. 2015 has no label (its t+2 is the dropped 2017) and
+    # 2020 is left out so that no validation outcome postdates a test feature.
+    "train": range(2008, 2017),
+    "valid": (2018, 2019),
+    "test": (2021, 2022, 2023),
+    "score": (2025,),
+}
+
+NUMERIC = ["log_learners", "ler", "chg1", "chg1_rel_prov", "chg3", "vol", "peak_ratio",
+           "edu_chg1", "years_observed", "district_chg1", "district_schools",
+           "nearby_5km", "nearby_10km", "nearby_chg1", "size_vs_nearby", "quintile"]
+
+# From the matric results the primary track extracted out of 13 report PDFs.
+# None of it is derivable from an enrolment headcount: how many learners
+# actually reached the end of school, how many were advanced without meeting
+# the requirements, and whether either is worsening.
+# Pass rate was dropped once on evidence that turned out to be corrupt. A
+# layout bug in the PDF parser had been scrambling the multi-measure editions,
+# which left pass rate extracting at 0% and achievement at 7.6% - so it looked
+# like the source simply did not publish them. With the parser fixed they come
+# through at 73% and 82%, and both are back.
+MATRIC = ["throughput", "throughput_chg1", "throughput_chg3", "throughput_vol",
+          "progressed_share", "progressed_share_chg1",
+          "wrote_chg1", "wrote_chg3", "pass_rate", "pass_rate_chg1"]
+
+NUMERIC = NUMERIC + MATRIC + ["matric_age"]
+CATEGORICAL = ["province", "sector", "phase", "nofee", "urbanrural", "closing_flag"]
 
 
-def _haversine(lat, lon, city_lat, city_lon):
-    lat1, lon1, lat2, lon2 = map(np.radians, [lat, lon, city_lat, city_lon])
-    a = (np.sin((lat2 - lat1) / 2) ** 2
-         + np.cos(lat1) * np.cos(lat2) * np.sin((lon2 - lon1) / 2) ** 2)
-    return 2 * EARTH_RADIUS_KM * np.arcsin(np.sqrt(a))
+def value_at(wide, years, offsets):
+    """For each row, the value at the first of year-k (k in offsets) that exists.
+    Returns the value and the gap in years it was found at."""
+    val = pd.Series(np.nan, index=years.index)
+    gap = pd.Series(np.nan, index=years.index)
+    lookup = wide.stack()
+    for k in offsets:
+        key = pd.MultiIndex.from_arrays([years.index.get_level_values("emis"), years.values - k])
+        v = lookup.reindex(key).to_numpy()
+        take = val.isna().to_numpy() & ~np.isnan(v)
+        val[take] = v[take]
+        gap[take] = k
+    return val, gap
 
 
-def distance_to_city(lat, lon):
-    """Kilometres to the nearest major centre, or NaN where unusable."""
-    lat = pd.to_numeric(lat, errors="coerce")
-    lon = pd.to_numeric(lon, errors="coerce")
-    # Latitude zero is the Atlantic Ocean, not a school.
-    usable = lat.notna() & lon.notna() & (lat != 0) & (lon != 0)
-    best = pd.Series(np.nan, index=lat.index, dtype=float)
-    for city_lat, city_lon in CITIES:
-        d = _haversine(lat.where(usable), lon.where(usable), city_lat, city_lon)
-        best = np.fmin(best, d) if best.notna().any() else d
-    return best
+def annualised(now, then, gap):
+    return (now / then) ** (1 / gap) - 1
 
 
-def build(panel):
-    """Per school per year, using that year and earlier only.
+def lagged(df, col, offsets):
+    wide = df.pivot(index="emis", columns="year", values=col)
+    idx = df.set_index(["emis", "year"]).index
+    years = pd.Series(idx.get_level_values("year"), index=idx)
+    val, gap = value_at(wide, years, offsets)
+    return val.to_numpy(), gap.to_numpy()
 
-    Requires emis, year, learners, educators, province, district, phase,
-    quintile, nofee, urbanrural, lat, lon.
+
+def school_history(df):
+    df = df.sort_values(["emis", "year"]).copy()
+    L = df.learners
+
+    prev, gap = lagged(df, "learners", [1, 2])
+    df["chg1"] = annualised(L.to_numpy(), prev, gap)
+    prev3, gap3 = lagged(df, "learners", [3, 4])
+    df["chg3"] = annualised(L.to_numpy(), prev3, gap3)
+    e_prev, e_gap = lagged(df, "educators", [1, 2])
+    df["edu_chg1"] = annualised(df.educators.to_numpy(), e_prev, e_gap)
+
+    df["log_learners"] = np.log1p(L)
+    df["ler"] = L / df.educators
+
+    g = df.groupby("emis")
+    logL = np.log(L)
+    step = logL - g["learners"].shift().pipe(np.log)
+    df["vol"] = step.groupby(df.emis).transform(lambda s: s.rolling(5, min_periods=3).std())
+    df["peak_ratio"] = L / g["learners"].cummax()
+    df["years_observed"] = g.cumcount() + 1
+    return df
+
+
+def context(df):
+    """Features describing a school's surroundings in the same year."""
+    grp = df.groupby(["province", "year"]).chg1
+    df["chg1_rel_prov"] = df.chg1 - grp.transform("median")
+    d = df.groupby(["district_key", "year"])
+    df["district_chg1"] = d.chg1.transform("median")
+    df["district_schools"] = d.emis.transform("size")
+
+    for col in ["nearby_5km", "nearby_10km", "nearby_chg1", "size_vs_nearby"]:
+        df[col] = np.nan
+    for year, part in df[df.lat.notna() & df.learners.notna()].groupby("year"):
+        coords = np.radians(part[["lat", "lon"]].to_numpy())
+        tree = BallTree(coords, metric="haversine")
+        n5 = tree.query_radius(coords, r=5 / EARTH_KM, count_only=True) - 1
+        ind10 = tree.query_radius(coords, r=10 / EARTH_KM)
+        chg = part.chg1.to_numpy()
+        size = part.learners.to_numpy()
+        n10 = np.empty(len(part))
+        near_chg = np.full(len(part), np.nan)
+        rel_size = np.full(len(part), np.nan)
+        for i, nb in enumerate(ind10):
+            nb = nb[nb != i]
+            n10[i] = len(nb)
+            if len(nb):
+                c = chg[nb]
+                c = c[~np.isnan(c)]
+                if len(c):
+                    near_chg[i] = np.median(c)
+                rel_size[i] = size[i] / np.median(size[nb])
+        df.loc[part.index, "nearby_5km"] = n5
+        df.loc[part.index, "nearby_10km"] = n10
+        df.loc[part.index, "nearby_chg1"] = near_chg
+        df.loc[part.index, "size_vs_nearby"] = rel_size
+    return df
+
+
+def outcome(df):
+    wide = df.pivot(index="emis", columns="year", values="learners")
+    idx = df.set_index(["emis", "year"]).index
+    future = wide.stack().reindex(
+        pd.MultiIndex.from_arrays([idx.get_level_values(0), idx.get_level_values(1) + HORIZON])
+    ).to_numpy()
+    df["learners_t2"] = future
+    df["chg_t2"] = df.learners_t2 / df.learners - 1
+
+    last_seen = df.groupby("emis").year.transform("max")
+    df["closed_by_t2"] = (last_seen < df.year + HORIZON) & (df.year + HORIZON <= 2025)
+
+    labelled = df.chg_t2.notna() & (df.learners >= MIN_LEARNERS)
+    med = df[labelled].groupby(["province", "year"]).chg_t2.median()
+    df["prov_chg_t2"] = df.set_index(["province", "year"]).index.map(med)
+    df["excess_chg_t2"] = df.chg_t2 - df.prov_chg_t2
+    df["loss"] = np.where(labelled, (df.excess_chg_t2 <= EXCESS_LOSS).astype(float), np.nan)
+    return df
+
+
+def assign_split(year):
+    for name, years in SPLITS.items():
+        if year in years:
+            return name
+    return "unused"
+
+
+def add_matric(df):
+    """Join matric outcomes onto the enrolment frame, keyed on school and year.
+
+    The outcome being predicted is measured from year Y to Y+2, so matric
+    figures for year Y and earlier are all that may be used. matric_features
+    builds them that way - every change is a backward difference - so the join
+    is on the feature year and nothing reaches forward.
+
+    Schools with no matric record keep NaN rather than a zero. A zero would say
+    "no candidates", which is a claim about the school; NaN says "we have no
+    figure", which is the truth. Weight of evidence bins missing as its own
+    level, so the distinction survives into the model.
     """
-    frame = panel.copy()
-    frame["year"] = pd.to_numeric(frame["year"], errors="coerce")
-    frame["learners"] = pd.to_numeric(frame["learners"], errors="coerce")
-    frame["educators"] = pd.to_numeric(frame["educators"], errors="coerce")
-    frame = frame.dropna(subset=["emis", "year", "learners"])
-    frame = frame.sort_values(["emis", "year"]).reset_index(drop=True)
+    nsc_path = os.path.join(ROOT, "datasets", "processed", "nsc_results.csv")
+    if not os.path.exists(nsc_path):
+        for column in MATRIC:
+            df[column] = np.nan
+        return df
 
-    by_school = frame.groupby("emis", sort=False)
+    nsc = pd.read_csv(nsc_path, dtype={"emis": str})
 
-    # --- enrolment direction -------------------------------------------------
-    # shift() looks backwards only, so no future year can reach a feature.
-    for span in (1, 3, 5):
-        previous = by_school["learners"].shift(span)
-        frame[f"enrolment_change_{span}y"] = (
-            (frame["learners"] - previous) / previous.replace(0, np.nan))
+    # The two tracks carry the identifier differently - one as an integer, the
+    # other as text with the leading zero the source sometimes prints. Both are
+    # normalised to bare digits before the join, or it matches nothing and
+    # quietly returns a frame of NaN instead of failing.
+    nsc["emis"] = nsc["emis"].map(normalise_emis)
+    sizes = df[["emis", "year", "learners"]].drop_duplicates().copy()
+    sizes["emis"] = sizes["emis"].map(normalise_emis)
 
-    # Instability is a warning independent of direction: a school swinging by
-    # hundreds of learners is not in control of its intake either way.
-    frame["enrolment_volatility"] = (
-        by_school["learners"]
-        .transform(lambda s: s.shift(1).rolling(5, min_periods=3).std()
-                   / s.shift(1).rolling(5, min_periods=3).mean()))
+    extra = matric_features(nsc, sizes)
 
-    # --- staffing ------------------------------------------------------------
-    # A ratio rather than both counts: learners and educators correlate at
-    # 0.89, so including both splits the coefficient unpredictably between them
-    # and makes an individual score impossible to explain.
-    frame["learner_educator_ratio"] = (
-        frame["learners"] / frame["educators"].replace(0, np.nan))
+    keyed = df.copy()
+    keyed["emis_key"] = keyed["emis"].map(normalise_emis)
+    extra = extra.rename(columns={"emis": "emis_key"})
+    merged = keyed.merge(extra, on=["emis_key", "year"], how="left")
 
-    # --- context -------------------------------------------------------------
-    # Absolute size means different things in a metro and a rural district, and
-    # measured ratios turned out to be nearly flat across funding bands 1-4, so
-    # relative position carries more signal than the raw value.
-    district_median = frame.groupby(["district", "year"])["learners"].transform("median")
-    frame["size_vs_district"] = frame["learners"] / district_median.replace(0, np.nan)
+    # Carry each school's most recent matric record forward.
+    #
+    # Joining on the exact year leaves the 2025 scoring rows empty, because the
+    # 2025 exams have not been reported yet - so the live ranking, which is the
+    # actual product, would score every school with this evidence missing. A
+    # school's 2024 matric figures are perfectly good information about it in
+    # 2025; they are simply a year old.
+    #
+    # The fill only ever looks backwards, so it cannot reach into the future
+    # for a training row either. matric_age records how stale the carried
+    # figure is, which lets the model discount an old one rather than treat it
+    # as current.
+    merged = merged.sort_values(["emis_key", "year"])
+    by_school = merged.groupby("emis_key", sort=False)
 
-    province_ratio = (frame.groupby(["province", "year"])["learner_educator_ratio"]
-                      .transform("median"))
-    frame["ratio_vs_province"] = (
-        frame["learner_educator_ratio"] / province_ratio.replace(0, np.nan))
+    observed_year = merged["year"].where(merged["throughput"].notna())
+    merged["matric_seen_year"] = by_school.apply(
+        lambda g: observed_year.loc[g.index].ffill(), include_groups=False
+    ).reset_index(level=0, drop=True)
 
-    # --- structure -----------------------------------------------------------
-    first_seen = by_school["year"].transform("min")
-    frame["school_age"] = frame["year"] - first_seen
+    for column in MATRIC:
+        merged[column] = by_school[column].ffill()
 
-    # A merged or renumbered school loses learners for administrative reasons
-    # and would otherwise read as severe attrition.
-    if {"old_emis", "new_emis"}.issubset(frame.columns):
-        old = frame["old_emis"].astype("string").str.strip()
-        new = frame["new_emis"].astype("string").str.strip()
-        frame["renumbered"] = ((old.notna() & (old != "") & (old != "0"))
-                               & (new.notna() & (new != "") & (new != "0"))
-                               & (old != new)).astype(int)
-    else:
-        frame["renumbered"] = 0
-
-    frame["distance_to_city_km"] = distance_to_city(frame["lat"], frame["lon"])
-
-    return frame
-
-
-FEATURE_COLUMNS = [
-    "enrolment_change_1y", "enrolment_change_3y", "enrolment_change_5y",
-    "enrolment_volatility", "learner_educator_ratio", "size_vs_district",
-    "ratio_vs_province", "school_age", "renumbered", "distance_to_city_km",
-    "quintile", "nofee", "urbanrural", "province", "phase",
-]
+    merged["matric_age"] = merged["year"] - merged["matric_seen_year"]
+    merged = merged.drop(columns="matric_seen_year").drop(columns="emis_key")
+    return merged.sort_index() if merged.index.is_monotonic_increasing else merged.reset_index(drop=True)
+def build(clean):
+    df = clean.reset_index(drop=True)
+    df = school_history(df)
+    df = context(df)
+    df = outcome(df)
+    df = add_matric(df)
+    df["split"] = df.year.map(assign_split)
+    df["nofee"] = df.nofee.map({1.0: "NO_FEE", 0.0: "FEE"})
+    df["closing_flag"] = df.closing_flag.map({1: "CLOSING", 0: "OPEN"})
+    return df
 
 
-def training_table(panel, labels, lag=2):
-    """Join outcomes at matric year Y to features as they stood at year Y-2.
+def main():
+    clean = pd.read_csv(CLEAN_PANEL)
+    df = build(clean)
+    keep = (["emis", "year", "split", "school", "district", "district_key", "learners",
+             "educators", "learners_t2", "chg_t2", "prov_chg_t2", "excess_chg_t2",
+             "closed_by_t2", "loss"] + NUMERIC + [c for c in CATEGORICAL if c not in NUMERIC])
+    df = df[keep]
+    df.to_csv(MODEL_FRAME, index=False, compression="gzip")
 
-    The lag is what keeps the table honest: it forces every predictor to
-    predate the outcome it is paired with.
-    """
-    engineered = build(panel)
+    lab = df[df.loss.notna()]
+    print(lab.groupby("split").loss.agg(["size", "mean"]))
+    print(lab.groupby("year").loss.agg(["size", "mean"]).round(3).to_string())
+    print(df[df.split == "score"].shape)
 
-    available = [c for c in FEATURE_COLUMNS if c in engineered.columns]
-    features = engineered[["emis", "year"] + available].copy()
 
-    # Present the features under the matric year they will be judged against.
-    features["year"] = features["year"] + lag
-
-    outcomes = labels[["emis", "year", "is_high_risk", "survival_index",
-                       "throughput", "wrote", "enrolment_before"]].copy()
-
-    return outcomes.merge(features, on=["emis", "year"], how="inner")
+if __name__ == "__main__":
+    main()

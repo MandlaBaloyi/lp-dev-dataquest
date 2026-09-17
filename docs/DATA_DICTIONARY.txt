@@ -1,0 +1,248 @@
+DATA DICTIONARY — EVERY COLUMN, WHAT IT MEANS, HOW IT IS TREATED
+The Missing List · DataQuest · Theme: Education
+=========================================================
+
+Fill rates are measured, not estimated. Where a column is dirty, the number
+of distinct values is given against the number it should have - that gap is
+the number of spellings that need mapping before the column is usable.
+
+
+TABLE 1 — school_year_panel.csv.gz
+478,761 rows · 20 columns · 29,655 schools · 2007-2025 · all 9 provinces
+This is the raw joined panel. It is deliberately uncleaned.
+---------------------------------------------------------
+
+IDENTITY AND STRUCTURE
+
+  emis            100%   29,655 distinct
+    The national school identifier, and the join key for everything. Published
+    with and without a leading zero, so it is normalised to bare digits before
+    any join. Get this wrong and joins fail silently rather than loudly.
+
+  year            100%   19 distinct
+    Data year, 2007-2025. Used for the train/test split. Never a predictor -
+    a model that learns "2019 was bad" has learned nothing transferable.
+
+  school           99.9%  55,214 distinct
+    School name. Not modelled. Kept so a ranked result is readable by a human
+    who has to go and visit it. More distinct values than schools because
+    names are spelled inconsistently across years.
+
+  province        100%   9 distinct
+    Clean after normalisation. Was 11 before: KwaZulu-Natal is published as
+    both KZ and KZN, Gauteng as both GT and GP.
+
+  district        100%   222 distinct
+    Education district. High cardinality, so encoded by weight of evidence
+    rather than one column per district.
+
+  circuit          82.8%  1,782 distinct
+    Sub-district. Too sparse and too fine to be reliable. Excluded.
+
+  source_file     100%   140 distinct
+    Which spreadsheet a row came from. Not modelled; kept so any figure can be
+    traced back to the published file it came from.
+
+CLASSIFICATION
+
+  phase           100%   21 distinct, should be ~6
+    The grade range a school covers. Appears as SECONDARY SCHOOL, Secondary
+    School, Secondary and SECONDARY, among others. This is how the modelling
+    population is identified, so it has to be right - and 8,792 schools change
+    their recorded phase between years, which is why the label alone cannot be
+    trusted to filter on.
+
+  sector          100%   6 distinct, should be 2
+    Public or independent. One of the six values is ORDINARY, which is a
+    school type and not a sector at all.
+
+  type            100%   5 distinct
+    Institution type. Almost entirely one value once normalised, so it carries
+    no information and is not modelled.
+
+  status          100%   10 distinct, should be ~3
+    OPEN, Open and OPERATIONAL all mean the same thing. Used to tell a school
+    that is closing from one that is failing - they lose learners for entirely
+    different reasons.
+
+FUNDING AND CONTEXT
+
+  quintile         97.3%  17 distinct, should be 5
+    The funding band, 1 poorest to 5 wealthiest. Written as 3, Q3 and NQ3 in
+    different years, plus TO BE UPDATED and NOT APPLICABLE. Normalised to 1-5
+    plus unknown.
+
+    Unknown is kept as its own level rather than imputed. Measured, not
+    assumed: schools with no recorded quintile have a median of 296 learners
+    against 394-924 for known bands. They are systematically smaller, so the
+    absence is itself informative and imputing it would erase a real category.
+
+  nofee            89.2%  11 distinct, should be 2
+    Whether the school charges fees. Values include YES, No Fee, NO, Fee
+    Charging, Fee Paying and Free Charging - the last being a typo at source.
+    Correlates 0.85 with quintile, so only one of the two enters the model.
+
+  urbanrural       99.6%  12 distinct, should be ~4
+    Settlement type. DEEP RURAL is kept separate from RURAL, because the
+    source distinguishes them deliberately.
+
+  lat, lon         99.5%
+    Coordinates. 724 records sit at latitude or longitude zero - a point in
+    the Atlantic Ocean roughly 2,000km offshore, not a school. Those are
+    rejected rather than mapped, since any distance built on them is wrong.
+    A further 27,403 fall outside South Africa's latitude range entirely.
+
+SIZE AND STAFFING
+
+  learners        100%
+    Enrolment that year. The basis of school size and every trend measure.
+    Complete throughout, which is what makes it usable as a denominator.
+
+  educators        94.0%
+    Teaching staff. Missing on 6% of rows, imputed by provincial median within
+    the same year - a 2009 school and a 2024 school are not comparable.
+
+  old_emis, new_emis   83.5%, 79.7%
+    Renumbering history. Used to detect mergers: a merged school loses
+    learners for administrative reasons and would otherwise read as severe
+    attrition.
+
+
+TABLE 2 — nsc_results.csv
+93,846 rows · 12 columns · 8,093 schools · 2008-2024
+Extracted from 13 PDF reports. See DATASETS.txt section 5.
+---------------------------------------------------------
+
+  emis            100%    join key, normalised as above
+  year            100%    result year
+  province        100%    province
+  district          4.8%  printed once per block in the source and left blank
+                          on following rows; district comes from the panel
+                          instead
+  centre_no       100%    exam centre number, not used for modelling
+  school          100%    school name as printed in the report
+  quintile         96.0%  funding band as the report states it
+  wrote           100%    candidates who sat matric — the key figure
+  progressed      100%    learners advanced into matric without having met
+                          the promotion requirements
+  achieved         88.4%  candidates who passed
+  pass_rate        88.4%  achieved as a percentage of wrote
+  source_file     100%    which report edition the row came from
+
+  Where achieved and pass_rate are both present, the arithmetic is checked:
+  the rate must equal achieved divided by wrote. It holds on 82,979 of 82,979
+  checkable records, which is the only independent confirmation available that
+  the columns were read in the right order.
+
+
+TABLE 3 — model_frame.csv.gz
+146,944 rows · 47 columns
+The clean panel plus features and target. This is what the model trains on.
+---------------------------------------------------------
+
+THE TARGET
+
+  loss            13.2% positive
+    1 where a school's enrolment over the next two years falls at least 15
+    percentage points more than its provincial median, for schools of 100+
+    learners.
+
+    Measured against the province, not in absolute terms, so a provincial
+    policy shift is not read as thousands of schools failing at once.
+
+    WHAT IT IS NOT: dropout. A learner who transfers to a better school and
+    one who leaves education entirely look identical in a headcount. The
+    honest claim is that these schools are shedding learners faster than their
+    province, not that those learners have left the system.
+
+  split
+    train 73,105 · valid 16,398 · test 24,891 · score 8,154 · unused 24,396
+    Split by year, never at random. A school appears in up to nineteen rows,
+    so a random split would train and test on the same school and the model
+    would score well by recognising it.
+
+DERIVED FROM ENROLMENT HISTORY
+
+  log_learners            school size, logged because the distribution is
+                          heavily skewed
+  chg1, chg3              enrolment change over one and three years
+  chg1_rel_prov           the same, measured against the province
+  vol                     enrolment volatility; instability is a warning
+                          independent of direction
+  peak_ratio              enrolment as a share of the school's own peak
+  years_observed          how long the school has been in the record
+
+DERIVED FROM STAFFING
+
+  ler                     learners per educator. A ratio rather than both
+                          counts, because the two correlate at 0.89 and
+                          including both makes an individual score
+                          unexplainable
+  edu_chg1                educator change over the last year
+
+DERIVED FROM CONTEXT
+
+  district_chg1           the district's typical enrolment change
+  district_schools        how many secondary schools the district holds
+  nearby_5km, nearby_10km schools within reach
+  nearby_chg1             what those neighbours are doing
+  size_vs_nearby          size relative to the schools around it
+
+DERIVED FROM MATRIC RESULTS
+
+  throughput              matric candidates as a share of the school
+  throughput_chg1/chg3    how that share is moving
+  throughput_vol          how erratic it has been
+  wrote_chg1, wrote_chg3  change in the size of the matric class
+  pass_rate               matric pass rate — the strongest single variable in
+                          the final model
+  pass_rate_chg1          whether results are improving or collapsing
+  progressed_share        share of the matric class advanced without meeting
+                          requirements
+  matric_age              how old the school's latest matric record is, so a
+                          stale figure can be discounted
+
+
+HOW MISSING DATA IS TREATED
+---------------------------------------------------------
+
+The treatment depends entirely on whether a value is missing at random or
+missing for a reason. Getting this wrong erases signal rather than repairing
+it.
+
+  educators       impute, by provincial median within the year. The gap looks
+                  administrative. Median rather than mean, because school
+                  sizes are heavily skewed.
+
+  quintile        keep unknown as its own level. Measured above: those schools
+                  are systematically smaller, so the absence carries
+                  information.
+
+  coordinates     reject. A location cannot be invented, so distance features
+                  are simply unavailable for those rows.
+
+  matric          carry forward with an age marker, never backward. Forward is
+                  what a district official would already have on file; backward
+                  would be reading the future.
+
+  target          never impute. Imputing an outcome invents the answer the
+                  model is meant to learn.
+
+
+HOW CATEGORICAL VARIABLES ARE ENCODED
+---------------------------------------------------------
+
+  Low cardinality  province, quintile, urban/rural, fee status — weight of
+                   evidence, consistent with the scorecard.
+
+  High cardinality district, 222 values — also weight of evidence. One column
+                   per district would produce 222 mostly empty columns and a
+                   model that splits on noise.
+
+  Unknown          preserved as a category everywhere, never dropped.
+
+  Binning          numeric variables are cut into bins and the bins merged
+                   until risk moves in one direction across them. A scorecard
+                   where the middle band is riskier than both extremes cannot
+                   be explained to the person acting on it. Each bin holds at
+                   least 5% of the population; below that it is noise.
