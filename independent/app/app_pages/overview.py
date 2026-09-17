@@ -11,36 +11,46 @@ eda = read_json("eda_numbers.json")
 log = read_json("cleaning_log.json")
 df = schools_2025()
 
-st.title("Which secondary schools are about to lose learners?")
+st.title("The Missing List")
+st.caption("A school-level dropout risk register for South Africa")
+
 st.markdown(
-    "More than 40% of South African learners who start Grade 1 never finish matric. That figure is "
-    "published every year. What does not exist, anywhere, is the same figure **school by school** — "
-    "so support goes where there is information, and at school level that information has never "
-    "been assembled."
+    "**More than 40% of South African learners who start Grade 1 never finish matric.** "
+    "Put plainly: 40 of every 100 children who walk into a Grade 1 classroom will not walk "
+    "out of a Grade 12 one. That figure is published, widely quoted, and not in dispute."
+)
+st.markdown("### So the obvious question is: how do we save those learners?")
+
+st.markdown(
+    "That is the real problem — and it is not that the number is unknown. It is well known. "
+    "It is that **it cannot be pointed at anything.** Nobody can deploy a teacher to a "
+    "percentage. An organisation with one retention programme and funding for twelve schools "
+    "cannot use a national average to choose the twelve. Learners are counted after they are "
+    "gone, in aggregate, once a year."
 )
 st.markdown(
-    "This tool assembles it. It audits every school record the country publishes, repairs what it "
-    "finds, then ranks every secondary and combined school on the risk of losing learners faster "
-    "than its province over the next two years — and says **why** for each one."
+    "*Every year that list does not exist, help goes somewhere — just not necessarily where "
+    "the loss is worst.*"
 )
 
 st.divider()
-st.subheader("The question behind the question")
+st.subheader("Four questions stand in the way")
 st.markdown(
-    "*How do we save those learners?* cannot be answered until four smaller ones are. "
-    "**None of them currently has an answer anywhere in the public record.** We can now answer three."
+    "Before *how do we save them* can be answered, four smaller questions have to be. "
+    "**None of them currently has an answer anywhere in the public record.** "
+    "This register answers three."
 )
 
 questions = pd.DataFrame([
     ("Which provinces are losing the most?",
-     f"All {df.province.nunique()}, ranked by measured risk rather than estimate", "Answered"),
+     f"{df.province.nunique()} of 9, ranked by measured risk rather than estimate", "Answered"),
     ("Which districts inside those provinces?",
-     f"All {df.district.nunique()}, ranked within their province", "Answered"),
+     f"{df.district.nunique()}, ranked within their province", "Answered"),
     ("Which schools inside those districts?",
-     f"All {len(df):,} secondary schools, scored and ranked individually", "Answered"),
+     f"{len(df):,} secondary and combined schools, scored and ranked individually", "Answered"),
     ("Which grades inside those schools?",
      "Needs per-grade enrolment, held under separate permission", "Not yet"),
-], columns=["Question", "What the register delivers", "Status"])
+], columns=["Question", "What the 2025 register delivers", "Status"])
 
 st.dataframe(
     questions, hide_index=True, width="stretch",
@@ -51,10 +61,48 @@ st.dataframe(
     })
 
 st.caption(
-    "On the fourth we are deliberate. We can say a school is losing its Grade 8–12 pipeline. "
-    "We cannot yet say whether the loss concentrates in Grade 10 or Grade 11 — that needs a "
-    "dataset held under separate permission. It is a form, not a rebuild: the same pipeline "
-    "answers the fourth question the moment it arrives."
+    f"**Why 8 provinces and not 9.** Northern Cape published a Word template into the slot "
+    f"where its 2025 masterlist belonged, so the province has no 2025 data to score — a fault "
+    f"the audit found rather than one we introduced. The model covers all nine; the register "
+    f"covers the eight that published. Schools below 100 learners are also excluded, because "
+    f"one learner leaving moves their rate by several points."
+)
+st.caption(
+    "On the fourth question we are deliberate. We can say a school is losing its Grade 8–12 "
+    "pipeline. We cannot yet say whether the loss concentrates in Grade 10 or Grade 11 — that "
+    "needs a dataset held under separate permission. It is a form, not a rebuild: the same "
+    "pipeline answers the fourth question the moment it arrives."
+)
+
+st.divider()
+st.subheader("We build the missing list")
+st.markdown(
+    "Using 19 years of open government data covering every school in all nine provinces, we "
+    "score each secondary school on its risk of losing learners before matric, rank them worst "
+    "first, and attach the reasons."
+)
+
+a, b = st.columns(2)
+with a.container(border=True, height="stretch"):
+    st.markdown(":material/person_search: **What a user does with it**")
+    st.markdown(
+        "A planner opens the register, filters to their province, and sees the schools to act "
+        "on first — each with a score, a national rank, and its three driving factors. "
+        "**That is a morning's decision instead of a year's guesswork.**"
+    )
+with b.container(border=True, height="stretch"):
+    st.markdown(":material/visibility: **Why it can be trusted**")
+    st.markdown(
+        "The model is a scorecard, not a black box. Every score decomposes into visible, "
+        "auditable weights, so whoever must justify the spend can **explain the decision line "
+        "by line** — to a treasury, a community, or a school that disagrees with it."
+    )
+
+st.markdown(
+    "A ranking alone says where to go but not what to bring. Each score breaks into the factors "
+    "that produced it — funding tier, staffing levels, enrolment trend, matric throughput — "
+    "because a school flagged for a funding reason needs different help from one flagged for a "
+    "staffing reason."
 )
 st.divider()
 
