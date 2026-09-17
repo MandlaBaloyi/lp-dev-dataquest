@@ -1,5 +1,26 @@
 """The merged model: enrolment signals plus matric outcomes.
 
+TRAINING WINDOW, AND A NEAR MISS
+
+Enrolment volatility has been falling for a decade - median 0.096 in 2010
+against 0.069 in 2023 - so the earliest years teach a regime that no longer
+exists. Extending training past 2016 helps, and it is also where this almost
+went wrong.
+
+Training through 2020 reaches 0.711 AUC and crossing 0.70 was the target. It
+is not legitimate. An outcome for year Y is measured from enrolment at Y to
+Y+2, and the first test row is 2021, so training on 2019 or 2020 means the
+model has already seen enrolment from inside the test window. Training stops
+at 2018, whose outcome is settled by 2020, and the honest figure is 0.695.
+
+    through 2016   0.686   clean
+    through 2018   0.695   clean, and what ships
+    through 2019   0.706   leaks
+    through 2020   0.711   leaks
+
+Calibration folds sit inside the training years, so no separate held-out year
+is needed and nothing reaches into the test window.
+
 Keeps the independent track's target and its binning, because both were sound,
 and adds what the primary track's matric extraction can say that a learner
 headcount cannot.
