@@ -68,7 +68,7 @@ factors. **That is a morning's decision instead of a year's guesswork.**
 
 ### Why it can be trusted
 
-The model is a **scorecard, not a black box.** Every score decomposes into
+The model is a **Logistic Regression Scorecard** — not a black box. Every score decomposes into
 visible, auditable weights, so whoever must justify the spend can explain the
 decision line by line — to a treasury, a community, or a school that disagrees
 with it.

@@ -39,10 +39,19 @@ def forest():
 
 st.title("The final model")
 st.markdown(
-    "A **Weight of Evidence logistic scorecard** over "
-    f"**{len(model['features_in_model'])} variables**, trained on 2008–2016, tuned on 2018–2019 "
-    "and measured once on **2021–2023**. Every number below comes from those test "
-    "years, which the model never saw."
+    f"A **Logistic Regression Scorecard** over **{len(model['features_in_model'])} variables**, "
+    "trained on 2008–2016, tuned on 2018–2019 and measured once on **2021–2023**. "
+    "Every number below comes from those test years, which the model never saw."
+)
+st.caption(
+    "**The algorithm is logistic regression.** \"Scorecard\" describes how its "
+    "coefficients are presented: each variable is cut into bands, each band is "
+    "encoded by its Weight of Evidence, and the fitted coefficients are scaled into "
+    f"points — {model['scaling']['pdo']} points doubles the odds, and "
+    f"{model['scaling']['base_score']} is {model['scaling']['base_odds_good_to_bad']}:1 "
+    "odds of no loss. It is the standard construction behind a credit score, and it is "
+    "what lets the register tell a school it lost 37 points for its matric pass rate "
+    "rather than just handing it a number."
 )
 
 with st.container(horizontal=True):

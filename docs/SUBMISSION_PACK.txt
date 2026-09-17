@@ -67,7 +67,7 @@ submitted without it.
 > factors driving each score. A provincial planner opens it, filters to their
 > province, and sees the fifty schools to act on first.
 >
-> The model is a scorecard rather than a black box, so every score breaks into
+> The model is a Logistic Regression Scorecard rather than a black box, so every score breaks into
 > visible weights that can be explained to whoever has to justify the spend.
 > On unseen years it reaches 0.694 AUC, and the worst-scored tenth of schools
 > loses learners fourteen times as often as the best-scored tenth.
