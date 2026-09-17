@@ -24,7 +24,7 @@
     "district_chg1": -0.4663
   },
   "intercept": -1.7772632613856136,
-  "threshold_scorecard_prob": 0.14878344658813958,
+  "threshold_scorecard_prob": 0.1487834465881396,
   "threshold_tree_prob": 0.14738062466635865,
   "target_recall_on_valid": 0.7,
   "psi_score_train_vs_test": 0.03136687270495146,
