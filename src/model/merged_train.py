@@ -131,12 +131,19 @@ def threshold_for_recall(truth, probability, target=0.70):
     Recall is favoured because a missed school that goes on to lose a fifth of
     its learners costs more than a district visit to a school that turns out
     fine.
+
+    Which scores this is fitted on matters more than the rule itself. An
+    earlier version used training-fold predictions, which separate far better
+    than anything real, so the cut landed too high: it flagged 11% of schools
+    and caught a quarter of the losses. Fitted instead on a year the model has
+    never seen, the same rule catches two thirds.
     """
-    for candidate in np.unique(probability)[::-1]:
-        predicted = (probability >= candidate).astype(int)
-        if ((predicted == 1) & (truth == 1)).sum() / max(truth.sum(), 1) >= target:
-            return float(candidate)
-    return 0.5
+    probability = np.asarray(probability)
+    truth = np.asarray(truth)
+    order = np.argsort(-probability)
+    cumulative = np.cumsum(truth[order]) / max(truth.sum(), 1)
+    at = int(np.searchsorted(cumulative, target))
+    return float(probability[order][min(at, len(order) - 1)])
 
 
 def run():
@@ -181,9 +188,15 @@ def run():
     # Losses are 12% of rows. Left unweighted, both models spend their
     # capacity on the 88% that are fine. Weighting the classes was worth more
     # than any feature added here - +0.011 AUC on its own.
+    # Tuned on 2018, the only year clean enough to tune on: its outcome
+    # settles in 2020, before the first test row. Six configurations spanned
+    # 0.730 to 0.739 there, so the hyperparameters are close to irrelevant -
+    # worth recording, because it says the remaining gap is not a tuning
+    # problem. 200 trees rather than 600: the difference is inside the noise
+    # and the cost is three times smaller.
     tree = RandomForestClassifier(
-        n_estimators=600, min_samples_leaf=20, max_features="sqrt",
-        class_weight="balanced_subsample", n_jobs=-1, random_state=7)
+        n_estimators=200, min_samples_leaf=20, max_features="log2",
+        class_weight="balanced_subsample", n_jobs=2, random_state=7)
     tree.fit(x_train, train["loss"])
     raw_validate = tree.predict_proba(x_validate)[:, 1]
     raw_test = tree.predict_proba(x_test)[:, 1]
