@@ -37,6 +37,20 @@ SHORT = {
     "edu_chg1": "Educator change",
     "district_schools": "FET schools in district",
     "district_chg1": "District trend",
+
+    # From the matric results. Kept short because these appear as chips and
+    # column labels, where the full sentence from train.LABELS does not fit.
+    "pass_rate": "Matric pass rate",
+    "pass_rate_chg1": "Pass rate trend",
+    "throughput": "Share reaching matric",
+    "throughput_chg1": "Matric share trend",
+    "throughput_chg3": "Matric share, 3 years",
+    "throughput_vol": "Matric share volatility",
+    "progressed_share": "Progressed without meeting requirements",
+    "progressed_share_chg1": "Progressed share trend",
+    "wrote_chg1": "Matric class size trend",
+    "wrote_chg3": "Matric class size, 3 years",
+    "matric_age": "Age of matric record",
 }
 
 

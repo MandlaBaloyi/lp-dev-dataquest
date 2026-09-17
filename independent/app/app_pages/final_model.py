@@ -183,9 +183,7 @@ if rf:
         "public money. An official who is told a school is high-risk will be asked why, and "
         "\"the forest said so\" does not survive that question — it cannot be checked against "
         "the masterlist, appealed by the school, or defended to a treasury. The scorecard gives "
-        f"up {abs(gap):.3f} AUC and returns three named reasons per school in exchange.
-
-"
+        f"up {abs(gap):.3f} AUC and returns three named reasons per school in exchange.\n\n"
         "The forest is kept as the honest measure of what that choice costs. Reporting only the "
         "model we shipped would hide the trade-off rather than make it."
     )

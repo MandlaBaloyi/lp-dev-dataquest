@@ -17,15 +17,16 @@ model = model_json()
 m = model["metrics"]
 log = read_json("cleaning_log.json")
 eda = read_json("eda_numbers.json")
+nsc_audit = read_json("data_audit_summary.json")
 
 st.title("How we built it")
 st.caption("Open data in, a readable scorecard out, and a check at every step that the numbers aren't "
            "flattering themselves.")
 
-data_tab, target_tab, model_tab, leak_tab, limits_tab = st.tabs(
-    [":material/cleaning_services: Data quality", ":material/flag: Target",
-     ":material/monitoring: Performance", ":material/shield: Leakage checks",
-     ":material/warning: Limitations"])
+data_tab, matric_tab, target_tab, model_tab, leak_tab, limits_tab = st.tabs(
+    [":material/cleaning_services: Data quality", ":material/picture_as_pdf: Matric extraction",
+     ":material/flag: Target", ":material/monitoring: Performance",
+     ":material/shield: Leakage checks", ":material/warning: Limitations"])
 
 with data_tab:
     left, right = st.columns([3, 2])
@@ -66,6 +67,56 @@ with data_tab:
         st.caption(f"{log['rows_in']:,} raw rows → {log['rows_out']:,} clean rows for "
                    f"{log['schools_out']:,} secondary and combined schools. Every rule is in "
                    "independent/DECISIONS.md.")
+
+
+with matric_tab:
+    st.markdown("**The second dataset is not published as a table**")
+    st.markdown(
+        "Enrolment comes as spreadsheets. Matric results do not — they are printed inside 13 "
+        "PDF reports, and no two editions share a column layout. The 2012 edition prints three "
+        "years of wrote, achieved and pass rate. The 2021 edition prints five years of progressed "
+        "and wrote. One file contains both."
+    )
+
+    a, b, c = st.columns(3)
+    a.metric("Reports parsed", "13", "2012–2024",
+             delta_color="off", delta_arrow="off", border=True)
+    b.metric("Records extracted", f"{nsc_audit['matric_records']:,}",
+             "school-year results", delta_color="off", delta_arrow="off", border=True)
+    c.metric("Layouts encountered", "4", "1, 2, 3 and 4 measures per year",
+             delta_color="off", delta_arrow="off", border=True)
+
+    st.markdown("**We got it wrong first, and the audit caught it**")
+    st.error(
+        "An early parser trusted each report's header as the layout for the whole file. Where a "
+        "file mixed layouts, every field shifted. The result passed every row count: 14,005 "
+        "records claimed more learners were advanced into matric than sat the exam, 87,055 "
+        "carried a quintile outside 1–5, and the pass-rate column extracted at 0% — which looked "
+        "so much like a field the source does not publish that it was removed from the model with "
+        "a comment explaining why. The comment was wrong and the evidence behind it was our own bug."
+    )
+    st.success(
+        "**The check that settles it.** Where a report prints both the achieved count and the "
+        "pass rate, the arithmetic must agree — the rate is achieved ÷ wrote. A misaligned row "
+        "cannot satisfy that by chance. After the fix it holds on **82,979 of 82,979 checkable "
+        "records**, and pass rate went from unusable to the strongest single variable in the model."
+    )
+
+    st.markdown("**What changed**")
+    st.dataframe(
+        pd.DataFrame([
+            ("Records extracted", "71,291", "93,846"),
+            ("Progressed exceeds wrote (impossible)", "14,005", "0"),
+            ("Quintile outside 1–5 or 99", "87,055", "0"),
+            ("Achievement figure present", "7.6%", "88.4%"),
+            ("Pass rate present", "0.0%", "88.4%"),
+        ], columns=["", "Before the fix", "After"]),
+        hide_index=True, width="stretch")
+
+    st.caption(
+        "Fewer records, all of them correct. The rows that disappeared are the ones that were "
+        "being published as data while being misread."
+    )
 
 with target_tab:
     st.markdown(
