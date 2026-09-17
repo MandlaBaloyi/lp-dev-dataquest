@@ -1,95 +1,110 @@
 """The NSC report parser.
 
-Rows are matched on shape rather than column position, because the number of
-empty columns varies from page to page. These tests pin that shape matching,
-including the cases that should be rejected - a parser that silently accepts a
-header row produces a school called "Centre Name" with a pass rate of nothing.
+No two editions of the report share a layout, so the parser reads each one's
+own header and maps the numbers in a row onto it. These tests cover both that
+path and the fallback used for editions whose headings are rotated in the
+source and therefore unreadable as text.
+
+The rejection cases matter as much as the parsing ones. A parser that quietly
+accepts a header row invents a school called "Centre Name", and nothing about
+that raises an error.
 """
 import pytest
 
-from src.build.nsc_results import parse_row, _row_years, _years_in
+from src.build.nsc_results import (CONVENTIONAL_ORDER, infer_schema,
+                                   parse_row, parse_schema)
 
-YEARS = [2022, 2023, 2024]
-
-# A real row, as pdfplumber returns it: district, EMIS, centre number, name,
-# quintile, then four measures for each of three years, padded with the empty
-# cells the source table carries.
-GOOD_ROW = [
-    "CAPE WINELANDS", "", "129333433", "", "1008844", "", "ROODEZANDT SEK.",
-    "", "", "", "3", "27", "", "121", "", "83", "68.6", "", "11", "129", "",
-    "73", "56.6", "12", "143", "", "100", "69.9",
+# As the 2021 edition prints it: five years, two measures each.
+HEADER_2021 = [
+    "No Progressed 2017", "Wrote 2017", "No Progressed 2018", "Wrote 2018",
+    "No Progressed 2019", "Wrote 2019", "No Progressed 2020", "Wrote 2020",
+    "No Progressed 2021", "Wrote 2021",
 ]
 
-
-def test_parses_three_years_from_one_row():
-    rows = parse_row(GOOD_ROW, YEARS)
-    assert len(rows) == 3
-    assert [r["year"] for r in rows] == YEARS
+ROW_2021 = ("Nelson Mandela  200100131  4341014 COLLEGIATE GIRLS HIGH SCHOOL"
+            "                  5 0 125 0 135 0 156 0 126 0 134")
 
 
-def test_reads_the_measures_correctly():
-    first = parse_row(GOOD_ROW, YEARS)[0]
-    assert first["wrote"] == 121
-    assert first["achieved"] == 83
-    assert first["pass_rate"] == 68.6
-    assert first["progressed"] == 27
-    assert first["quintile"] == "3"
+def test_reads_the_layout_from_the_header():
+    schema = parse_schema(HEADER_2021)
+    assert len(schema) == 10
+    assert schema[0] == ("progressed", 2017)
+    assert schema[1] == ("wrote", 2017)
+    assert schema[-1] == ("wrote", 2021)
 
 
-def test_normalises_the_identifier():
-    # EMIS is published with and without a leading zero; joins depend on this.
-    row = list(GOOD_ROW)
-    row[2] = "029333433"
-    assert parse_row(row, YEARS)[0]["emis"] == "29333433"
+def test_header_repeats_are_collapsed():
+    # The header reprints on every page; the layout must not grow each time.
+    assert parse_schema(HEADER_2021 * 4) == parse_schema(HEADER_2021)
 
 
-def test_carries_the_school_name_across_empty_cells():
-    assert parse_row(GOOD_ROW, YEARS)[0]["school"] == "ROODEZANDT SEK."
+def test_parses_five_years_from_one_row():
+    rows = parse_row(ROW_2021, parse_schema(HEADER_2021))
+    assert [r["year"] for r in rows] == [2017, 2018, 2019, 2020, 2021]
+    assert [r["wrote"] for r in rows] == [125, 135, 156, 126, 134]
 
 
-def test_skips_a_year_with_no_candidates():
-    # A school that presented nobody that year has no cohort to measure.
-    row = list(GOOD_ROW)
-    row[13] = "0"                      # Total Wrote for the first year
-    years = [r["year"] for r in parse_row(row, YEARS)]
-    assert 2022 not in years and len(years) == 2
+def test_takes_the_identifier_and_name():
+    first = parse_row(ROW_2021, parse_schema(HEADER_2021))[0]
+    assert first["emis"] == "200100131"
+    assert first["centre_no"] == "4341014"
+    assert "COLLEGIATE" in first["school"]
 
 
-def test_rejects_a_header_row():
-    header = ["District Name", "EMIS No", "Centre No", "Centre Name",
-              "Quintile", "2022", "2023", "2024"]
-    assert parse_row(header, YEARS) == []
+def test_normalises_a_leading_zero_in_the_identifier():
+    # EMIS is published both ways across sources, and every join depends on it.
+    row = ROW_2021.replace("200100131", "000100131")
+    assert parse_row(row, parse_schema(HEADER_2021))[0]["emis"] == "100131"
 
 
-def test_rejects_a_row_with_no_identifier():
-    assert parse_row(["WESTERN CAPE"] + [""] * 20, YEARS) == []
+def test_skips_a_year_the_school_presented_nobody():
+    row = ROW_2021.replace("5 0 125", "5 0 0")
+    years = [r["year"] for r in parse_row(row, parse_schema(HEADER_2021))]
+    assert 2017 not in years and len(years) == 4
 
 
-def test_rejects_a_malformed_identifier():
-    # Nine digits is the shape; eight is something else.
-    row = list(GOOD_ROW)
-    row[2] = "12933343"
-    assert parse_row(row, YEARS) == []
+def test_rejects_an_impossible_candidate_count():
+    # Columns that fail to line up produce a value spanning two merged cells.
+    # The largest real matric cohort is in the low hundreds.
+    row = ROW_2021.replace("0 125", "0 606080106")
+    years = [r["year"] for r in parse_row(row, parse_schema(HEADER_2021))]
+    assert 2017 not in years
 
 
-def test_rejects_a_row_missing_measures():
-    assert parse_row(GOOD_ROW[:12], YEARS) == []
+def test_rejects_a_row_without_an_identifier():
+    assert parse_row("WESTERN CAPE", parse_schema(HEADER_2021)) == []
 
 
-def test_finds_years_in_page_text():
-    assert _years_in("2022 2023 2024 results") == [2022, 2023, 2024]
+def test_rejects_a_row_with_too_few_numbers():
+    assert parse_row("Metro  200100131  4341014 SOME SCHOOL  5 0 125",
+                     parse_schema(HEADER_2021)) == []
 
 
-def test_year_detection_ignores_numbers_that_are_not_years():
-    assert 1008 not in _years_in("Centre 1008844 in 2024")
+def test_parses_nothing_without_a_layout():
+    assert parse_row(ROW_2021, []) == []
 
 
-def test_falls_back_to_the_edition_when_the_page_is_unreadable():
-    # An edition reports on its own year and the two before it.
-    assert _row_years("no years here", 2024) == [2022, 2023, 2024]
+def test_infers_the_layout_when_the_header_cannot_be_read():
+    # The recent editions rotate their headings, so text extraction yields no
+    # header at all while the rows below remain perfectly legible.
+    lines = [ROW_2021] * 5
+    schema = infer_schema(lines, edition=2021, span=5)
+    assert len(schema) == 10
+    assert schema[1] == ("wrote", 2017)
+    assert schema[-1] == ("wrote", 2021)
 
 
-def test_prefers_years_printed_on_the_page_over_the_filename():
-    # The 2024 edition reports 2022-2024, so trusting the filename alone would
-    # mislabel two thirds of the data.
-    assert _row_years("2022 2023 2024", 2024) == [2022, 2023, 2024]
+def test_inferred_layout_parses_the_same_values_as_the_header():
+    from_header = parse_row(ROW_2021, parse_schema(HEADER_2021))
+    inferred = parse_row(ROW_2021, infer_schema([ROW_2021] * 5, 2021, 5))
+    assert [r["wrote"] for r in from_header] == [r["wrote"] for r in inferred]
+
+
+def test_inference_returns_nothing_when_there_are_no_rows():
+    assert infer_schema(["WESTERN CAPE", "District Name"], 2024) == []
+
+
+def test_measure_order_puts_wrote_after_progressed():
+    # Wrote is the figure the model depends on, so its position must be right.
+    assert CONVENTIONAL_ORDER[2] == ["progressed", "wrote"]
+    assert CONVENTIONAL_ORDER[4][1] == "wrote"

@@ -23,9 +23,15 @@ means very different things. Rather than assuming how enrolment divides across
 grades - which is itself distorted by the dropout being measured - each school
 is compared against the median for its own phase in its own year:
 
-    survival_index = throughput / median throughput for that phase and year
+    survival_index = throughput / median throughput for schools of the
+                     same phase, year and size band
 
-A school at 1.0 is typical for its type that year. Below 1.0, fewer of its
+Size is in that comparison because throughput carries enrolment in its
+denominator, so a larger school mechanically shows a smaller matric share.
+Leaving it out puts that structural effect into the target, and a model then
+learns to flag large schools - which scores well and means nothing.
+
+A school at 1.0 is typical for its type, year and size. Below 1.0, fewer of its
 learners are reaching matric than is normal for schools like it. Indexing by
 year also absorbs national shifts, so a bad year for everyone does not register
 as thousands of newly failing schools.
@@ -59,6 +65,12 @@ HIGH_RISK_QUANTILE = 0.20
 MIN_ENROLMENT = 50
 MIN_CANDIDATES = 10
 
+# Schools are compared within size bands as well as phase and year, because
+# throughput carries enrolment in its denominator. Five bands is enough to
+# separate a village school from a metro one without leaving bands too thin
+# to hold a stable median.
+SIZE_BANDS = 5
+
 
 def build(panel, nsc, lag=ENROLMENT_LAG, quantile=HIGH_RISK_QUANTILE):
     """One row per school-year with a throughput measure and a binary target.
@@ -90,8 +102,25 @@ def build(panel, nsc, lag=ENROLMENT_LAG, quantile=HIGH_RISK_QUANTILE):
 
     merged["throughput"] = merged["wrote"] / merged["enrolment_before"]
 
-    # Compare like with like: same phase, same year.
-    typical = (merged.groupby(["phase", "year"])["throughput"]
+    # Compare like with like: same phase, same year, AND similar size.
+    #
+    # Size belongs in that list because throughput has enrolment in its
+    # denominator, so a larger school mechanically shows a smaller matric
+    # share - measured at -0.43 correlation against raw enrolment. Indexing on
+    # phase and year alone leaves that structural effect in the target, and a
+    # model then learns to flag large schools. It looks like signal, scores
+    # well in training, and says nothing about whether a school is losing
+    # learners.
+    #
+    # Banding by size and normalising within the band removes it, and changes
+    # what the target means to something more useful anyway: not "has a low
+    # matric share" but "has a lower matric share than schools of its own kind
+    # and size". That is the comparison a planner actually needs.
+    merged["size_band"] = merged.groupby(["phase", "year"])["enrolment_before"].transform(
+        lambda s: pd.qcut(s, q=min(SIZE_BANDS, max(s.nunique(), 1)),
+                          labels=False, duplicates="drop"))
+
+    typical = (merged.groupby(["phase", "year", "size_band"])["throughput"]
                .transform("median"))
     merged["survival_index"] = merged["throughput"] / typical
 
