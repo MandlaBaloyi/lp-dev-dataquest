@@ -129,3 +129,43 @@ def test_saved_scorecard_reproduces_the_published_ranking():
     # model.json stores WoE to 4 decimals, so scores agree to within a point
     assert np.abs(card.score(frame).to_numpy() - rank.score.to_numpy()).max() <= 1
     assert np.allclose(card.probability(frame).to_numpy(), rank.p_loss.to_numpy(), atol=1e-3)
+
+
+# ------------------------------------------------ risk list search
+
+def _search(register, term):
+    """The risk list's search, as risk_list.py performs it."""
+    return register[
+        register.school.str.contains(term, case=False, na=False, regex=False)
+        | register.emis.astype(str).str.contains(term, na=False, regex=False)]
+
+
+def test_search_finds_schools_outside_the_default_tier_filter():
+    """The Tier pills default to Priority and Watch, which is under a quarter of
+    the register. Search runs against the whole register precisely so the other
+    three quarters are findable - previously they returned nothing at all."""
+    from src.common.paths import out
+    register = pd.read_csv(out("ranking_2025.csv"))
+    lower_risk = register[~register.tier.isin(["PRIORITY", "WATCH"])]
+    assert len(lower_risk) > 0, "expected schools outside the default tiers"
+    assert len(_search(register, lower_risk.iloc[0].school)) >= 1
+
+
+def test_search_handles_school_names_containing_brackets():
+    """23 schools have names like AVIANTO SCHOOL (PTY) LTD. Under the default
+    regex=True those are patterns, not names, and searching one raised rather
+    than matched."""
+    from src.common.paths import out
+    register = pd.read_csv(out("ranking_2025.csv"))
+    bracketed = register[register.school.str.contains("(", regex=False, na=False)]
+    assert len(bracketed) > 0, "expected at least one bracketed school name"
+    assert len(_search(register, bracketed.iloc[0].school)) >= 1
+    _search(register, "(")          # a bare metacharacter must not raise
+
+
+def test_search_matches_on_emis_and_ignores_case():
+    from src.common.paths import out
+    register = pd.read_csv(out("ranking_2025.csv"))
+    first = register.iloc[0]
+    assert len(_search(register, str(first.emis))) >= 1
+    assert len(_search(register, first.school.lower())) >= 1

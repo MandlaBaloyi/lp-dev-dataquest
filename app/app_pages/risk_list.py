@@ -26,20 +26,35 @@ with st.container(border=True):
         quint = st.pills("Quintile", [1, 2, 3, 4, 5], selection_mode="multi",
                          format_func=lambda q: f"Q{q}", key="rl_quint")
 
-view = df
-if provinces:
-    view = view[view.province.isin(provinces)]
-if districts:
-    view = view[view.district.isin(districts)]
-if tiers:
-    view = view[view.tier.isin(tiers)]
-if sectors:
-    view = view[view.sector.isin(sectors)]
-if quint:
-    view = view[view.quintile.isin(quint)]
-if search:
-    s = search.strip()
-    view = view[view.school.str.contains(s, case=False, na=False) | view.emis.astype(str).str.contains(s)]
+s = search.strip() if search else ""
+
+if s:
+    # A search means "find me this school". It runs against the whole register
+    # and ignores the other filters, because the alternative is a silent empty
+    # result: the Tier pills default to Priority and Watch, which is 1,815 of
+    # 7,681 schools, so searching any of the other 5,866 returned nothing and
+    # looked like the school was missing from the data.
+    # regex=False because 23 school names contain brackets - searching
+    # "AVIANTO SCHOOL (PTY) LTD" is a regex error, not a match.
+    view = df[df.school.str.contains(s, case=False, na=False, regex=False)
+              | df.emis.astype(str).str.contains(s, na=False, regex=False)]
+else:
+    view = df
+    if provinces:
+        view = view[view.province.isin(provinces)]
+    if districts:
+        view = view[view.district.isin(districts)]
+    if tiers:
+        view = view[view.tier.isin(tiers)]
+    if sectors:
+        view = view[view.sector.isin(sectors)]
+    if quint:
+        view = view[view.quintile.isin(quint)]
+
+if s:
+    st.caption(
+        f":material/search: Searching all **{len(df):,}** schools for “{s}” — the "
+        "filters above are ignored while a search is active. Clear the box to use them.")
 
 with st.container(horizontal=True):
     st.metric("Schools shown", f"{len(view):,}", border=True)
@@ -48,7 +63,15 @@ with st.container(horizontal=True):
     st.metric("Learners in these schools", f"{view.learners.sum():,.0f}", border=True)
 
 if view.empty:
-    st.info("No schools match these filters.", icon=":material/filter_alt_off:")
+    if s:
+        st.info(
+            f"No school in the 2025 register matches “{s}”. The register covers "
+            f"{len(df):,} secondary and combined schools with 100+ learners in 8 "
+            "provinces — Northern Cape published no 2025 masterlist, so its schools "
+            "cannot be scored.",
+            icon=":material/search_off:")
+    else:
+        st.info("No schools match these filters.", icon=":material/filter_alt_off:")
     st.stop()
 
 map_col, table_col = st.columns([2, 3])

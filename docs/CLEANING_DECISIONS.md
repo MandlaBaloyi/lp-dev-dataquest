@@ -2,7 +2,7 @@
 
 Every choice made between the raw panel and the trained model, with the reason
 and the number of rows it touched. The counts come from
-`outputs/cleaning_log.json`, which `python -m src.clean` writes.
+`outputs/cleaning_log.json`, which `python -m src.build.clean` writes.
 Rule IDs (D1, D2, …) match the comments in `src/clean.py`.
 
 Input: `datasets/processed/school_year_panel.csv.gz`, which has 478,761 rows,
@@ -10,8 +10,8 @@ Input: `datasets/processed/school_year_panel.csv.gz`, which has 478,761 rows,
 was used. The primary track's cleaning code, decisions and model table were
 deliberately not read.
 
-Output: `data/clean_panel.csv.gz`, which has 146,944 rows and 9,157 schools
-(secondary and combined only), and `data/model_frame.csv.gz`, which holds the
+Output: `datasets/processed/clean_panel.csv.gz`, which has 146,944 rows and 9,157 schools
+(secondary and combined only), and `datasets/processed/model_frame.csv.gz`, which holds the
 features and target.
 
 ---

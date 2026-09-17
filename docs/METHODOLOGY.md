@@ -115,7 +115,7 @@ data at the 10 km scale.
 higher on validation (2018–19) than on training (2008–16). School size, for
 example, goes from 0.15 to 0.39. The 2007–2014 history comes from a single
 2013 publication, and those years are simply harder to predict (validation
-AUC 0.69 against training 0.65). Sector is the extreme case: IV 0.003 in
+AUC 0.705 against training 0.670). Sector is the extreme case: IV 0.003 in
 training and 0.128 in validation, so we left it out.
 
 ---
@@ -184,32 +184,53 @@ still catches 70% of loss schools, then applied unchanged to test (2021–23).
 
 | Metric | Scorecard: valid | Scorecard: **test** | Tree: valid | Tree: **test** |
 |---|---:|---:|---:|---:|
-| AUC | 0.692 | **0.654** | 0.686 | **0.657** |
-| Gini | 0.384 | **0.309** | 0.371 | **0.313** |
-| KS | 0.298 | 0.225 | 0.286 | 0.232 |
-| Recall | 0.700 | **0.576** | 0.700 | 0.586 |
-| Precision | 0.196 | **0.180** | 0.190 | 0.180 |
-| F1 | 0.306 | 0.274 | 0.299 | 0.276 |
-| Accuracy | 0.604 | 0.628 | 0.590 | 0.625 |
-| *Accuracy of "nobody loses"* | *0.875* | *0.878* | | |
-| Loss rate in worst 10% | 25.3% | **21.7%** | 25.1% | 20.9% |
-| Lift in worst 10% | 2.02× | **1.78×** | 2.01× | 1.72× |
+| AUC | 0.7047 | **0.6939** | 0.7041 | **0.6945** |
+| Gini | 0.4094 | **0.3879** | 0.4083 | **0.3889** |
+| KS | 0.3062 | 0.2811 | 0.3132 | 0.2888 |
+| Recall | 0.7001 | **0.5294** | 0.7001 | 0.5084 |
+| Precision | 0.2017 | **0.2169** | 0.2034 | 0.2192 |
+| F1 | 0.3132 | 0.3077 | 0.3152 | 0.3063 |
+| Accuracy | 0.6168 | 0.7098 | 0.6203 | 0.7195 |
+| *Accuracy of "nobody loses"* | *0.8752* | *0.8782* | | |
+| Loss rate in worst 10% | 27.4% | **28.5%** | 25.9% | 26.1% |
+| Lift in worst 10% | 2.20x | **2.34x** | 2.07x | 2.14x |
 
-Test AUC by year: 0.666 (2021), 0.642 (2022), 0.662 (2023). The score
-distribution is stable: PSI is 0.03 from train to test and 0.08 from train to
-2025, both below the 0.1 warning level.
+Test AUC by year: 0.701 (2021), 0.689 (2022), 0.700 (2023) - stable across all
+three, which is what a single pooled figure cannot show on its own.
+
+A calibrated random forest, trained separately on the identical frame and split
+by `src/model/benchmark.py`, reaches **0.7161** with a lift of 2.47x. That is
+the honest ceiling we measured, and it is not what ships. See section 5.4.
 
 ![ROC](outputs/fig7_roc_test.png)
 ![Deciles](outputs/fig8_decile_lift_test.png)
 
+**Population stability is a genuine caveat, not a clean pass.** PSI is **0.224**
+from train to test and **0.441** from train to the 2025 register. Both are above
+the conventional 0.1 warning level, and 0.441 is above the 0.25 level at which
+a scorecard is normally rebuilt rather than reused.
+
+This is expected rather than alarming - the training window starts in 2008 and
+the scored population is 2025, seventeen years of real change in South African
+schooling - but it is the single strongest argument for annual retraining, and
+it means the 2025 ranking should be read as triage rather than as a calibrated
+probability. An earlier version of this document reported 0.03 and 0.08 and
+described both as passing. Those figures predate the PDF extraction fix and
+were wrong.
+
 **Reading the results honestly:**
-- **The scorecard matches the benchmark.** A gradient-boosted tree on the same
-  raw variables scores AUC 0.657 against the scorecard's 0.654 on test, and it
-  overfits badly (training AUC 0.83). Under the brief's rule, the
-  interpretable model wins.
-- **The ranking works, but its power is modest.** The worst-scored tenth of
-  schools loses learners 8× as often as the best-scored tenth (21.7% against
-  2.6%). AUC 0.65 means this is a triage list, not a verdict.
+- **The scorecard matches its in-pipeline tree benchmark.** A tree on the same
+  raw variables scores AUC 0.6945 against the scorecard's 0.6939 on test - a
+  difference of 0.0006, which is noise. Under the brief's rule, the
+  interpretable model wins on a tie.
+- **A stronger model exists and is reported anyway.** The separately trained
+  calibrated forest reaches 0.7161. The 0.022 gap is the measured price of
+  interpretability, and it is published rather than omitted.
+- **The ranking works, and its power is moderate.** The worst-scored tenth of
+  schools loses learners at 28.5% against 2.43% in the best-scored tenth, a
+  ratio of 11.7x and a lift of 2.34x over the 12.2% base rate. AUC 0.694 means
+  this is a triage list worth working from the top of, not a verdict on any
+  single school.
 - **Accuracy is the weakest number here.** At 0.63 it is below the 0.88 you
   get by predicting that no school loses learners. That is the cost of
   choosing recall, and it is why accuracy is not the headline.
@@ -220,25 +241,29 @@ distribution is stable: PSI is 0.03 from train to test and 0.08 from train to
 **Why recall.** A missed school that goes on to lose a fifth of its learners
 costs more than a district visit to a school that turns out to be fine. We set
 the threshold for recall and report precision next to it. For fixed capacity,
-use the ranking itself: the Priority tier (worst 10%) holds losses at 1.8× the
+use the ranking itself: the Priority tier (worst 10%) holds losses at 2.34x the
 base rate.
 
 ### 5.4 The two silent mistakes, measured on this data
 
 | Check | Test AUC |
 |---|---:|
-| Scorecard, split by year (reported) | 0.654 |
-| Scorecard, random 70/30 split of rows | 0.656 |
-| Tree with school location, split by year | 0.655 |
-| Tree with school location, **random split** | **0.707** |
-| Scorecard with WoE bins fitted on **all** years | **0.670** |
+| Scorecard, split by year (reported) | 0.6939 |
+| Scorecard, random 70/30 split of rows | 0.6794 |
+| Tree with school location, split by year | 0.6919 |
+| Tree with school location, **random split** | **0.7309** |
+| Scorecard with WoE bins fitted on **all** years | **0.7057** |
 
 - **Random splitting inflates a flexible model.** A tree that can recognise a
-  school by its coordinates gains 0.05 AUC under a random split, while its
-  honest score is unchanged. The scorecard barely moves because its coarse
-  bins cannot memorise schools.
-- **Fitting bins on all the data inflates the scorecard** by 0.016 AUC, with
-  no error raised.
+  school by its coordinates gains **0.039 AUC** under a random split. It has
+  learned to identify schools, not to predict them. The scorecard is barely
+  affected because its coarse bins cannot memorise an individual school.
+- **Fitting bins on all the data inflates the scorecard** by **0.012 AUC**,
+  with no error raised anywhere. This is the subtler of the two, because the
+  bins look like preprocessing rather than like part of the model.
+
+Both numbers are read from `leakage_checks` in `outputs/model.json`, so they
+are measured on this data rather than quoted from the literature.
 
 ---
 
@@ -250,7 +275,7 @@ loss, a tier, and three reasons.
 
 | Tier | Schools | Meaning |
 |---|---:|---|
-| PRIORITY | 794 | Worst 10% of scores |
+| PRIORITY | 842 | Worst 10% of scores |
 | WATCH | 1,813 | Above the recall-70% threshold but outside the worst 10% |
 | (blank) | 5,074 | Below the threshold |
 
@@ -292,10 +317,12 @@ ones worth comparing first.
 6. **The spike cleaning rule (D3) looks one year ahead.** It cannot be applied
    to the latest year at scoring time, so a one-off error in 2025 will reach
    the ranking uncleaned.
-7. **The model is modest (AUC ≈ 0.65).** The masterlist carries little beyond
-   enrolment history. The biggest likely gains are from open sources this
-   track did not add: NSC Grade 12 entries per school (cohort size at the
-   end), and SNAP/LURITS grade counts if published openly.
+7. **The model is moderate (AUC 0.694).** The masterlist carries little beyond
+   enrolment history, which is why the NSC matric results were added - and
+   pass rate became the single strongest variable in the model, worth roughly
+   0.04 AUC. The remaining gain is SNAP/LURITS grade-level counts, which are
+   held under separate permission. That is the fourth question in the README
+   and the one this register cannot yet answer.
 
 ---
 
@@ -304,10 +331,10 @@ ones worth comparing first.
 From the repository root:
 
 ```bash
-python -m src.clean      # ~35 s  -> data/clean_panel.csv.gz, outputs/cleaning_log.json
-python -m src.features   # ~20 s  -> data/model_frame.csv.gz
-python -m src.train      # ~90 s  -> outputs/ iv, scorecard, metrics, model.json, ranking_2025
-python -m src.charts     # ~15 s  -> outputs/fig*.png, eda_numbers.json
+python -m src.build.clean      # ~35 s  -> datasets/processed/clean_panel.csv.gz, outputs/cleaning_log.json
+python -m src.model.features   # ~20 s  -> datasets/processed/model_frame.csv.gz
+python -m src.model.train      # ~90 s  -> outputs/ iv, scorecard, metrics, model.json, ranking_2025
+python -m src.model.charts     # ~15 s  -> outputs/fig*.png, eda_numbers.json
 python -m pytest independent/tests -v
 ```
 

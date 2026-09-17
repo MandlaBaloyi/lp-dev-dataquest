@@ -106,7 +106,7 @@ submitted without it.
 | Criterion | Max | Where it is answered |
 |---|---|---|
 | Innovation | 10 | Anomaly detection over national education data; the register nobody has published |
-| Presentation | 10 | Live app, five pages; slide deck; plain-language reasons per school |
+| Presentation | 10 | Live app, nine pages; slide deck; plain-language reasons per school |
 | Data Inclusion | 10 | 478,761 records · 19 years · all 9 provinces · 3 independent sources |
 | System Security | 10 | No personal data by design; POPIA position; reproducible, auditable pipeline |
 | Artificial Intelligence | 5 | Calibrated scorecard and forest, validated on unseen years, 0.694 AUC |
