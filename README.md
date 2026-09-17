@@ -22,22 +22,37 @@ trained on the result. Coverage is **national — all nine provinces, 2007–202
 Raw downloads are **not** committed — several hundred MB, all re-downloadable
 without a login. `src/fetch/` rebuilds them exactly.
 
-## Setup
+## Quick start
 
 ```bash
 pip install -r requirements.txt
+python -m streamlit run app/Home.py
 ```
 
-## Pipeline
+The app opens at http://localhost:8501. The panel it reads is committed, so
+nothing needs downloading first.
 
-Scripts run as modules, from the repository root:
+Note: `streamlit` is not on PATH on all machines. `python -m streamlit` always
+works and is the form used throughout.
+
+## Everything you can run
 
 ```bash
+# The EDA app - explore the raw data, make and record cleaning decisions
+python -m streamlit run app/Home.py
+
+# Tests - cleaning rules, WoE/IV, and guards on the training table
+python -m pytest tests/ -v
+
+# Rebuild the data from source (only needed to refresh; takes a while)
 python -m src.fetch.emis_masterlists   # 234 provincial masterlists from DBE
 python -m src.fetch.nsc_reports        # 13 NSC School Performance Reports
 python -m src.build.school_panel       # -> school_year_panel.csv.gz
 python -m src.build.model_table        # -> model_table.csv
 ```
+
+Every script runs as a module from the repository root. Running them as file
+paths (`python src/build/model_table.py`) will fail on the `src.` imports.
 
 ## Layout
 

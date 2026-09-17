@@ -2,7 +2,9 @@
 
 Run from the repository root:
 
-    streamlit run app/Home.py
+    python -m streamlit run app/Home.py
+
+(`streamlit` is not on PATH in this environment; `python -m` always works.)
 
 This app holds no analysis logic. Every calculation it shows comes from src/,
 so the pipeline and the app cannot disagree about what the data says. If a
