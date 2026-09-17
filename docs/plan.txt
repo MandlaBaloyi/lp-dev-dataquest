@@ -1,33 +1,96 @@
-"Business Model" — what they actually mean
+"Business Model" — what the judges are actually asking for
+=========================================================
 
-In everyday language, a business model just answers one question:
-"How does this solution actually work and survive in the real world?" 
-Not just "what's the cool idea," but "who does it help, 
-who pays for it (if anyone), how does it get built and kept running,
- and why would it keep existing after the hackathon ends?"
+In everyday language a business model answers one question: how does this
+survive in the real world? Not "what is the cool idea", but who does it help,
+who pays, how does it keep running, and why would it still exist after the
+hackathon ends.
 
-Usually want you to cover things like:
-
-The problem — stated clearly and briefly (you've already got this)
-The solution — what you're building/offering
-Who it's for — who uses it (government dept, NGO, schools, farmers, etc.) — your "customer" or "beneficiary"
-How it delivers value — why is this better than what exists now
-How it's funded or sustained — is it free and government-adopted, does an NGO fund it, is there a subscription, grant funding, etc.
-How it scales — could this work in one province and then expand nationally?
-Team/resources — what's needed to actually build and run it (data access, partnerships, tech)
+The judging criteria weight it at 5 marks out of 50. It is the smallest
+category and the easiest to score nothing in, because a team that has built
+something real usually has nothing to say about money.
 
 
-The business model — filled in with actual reasoning, not template answers
-Problem: ~40% of South African learners who start Grade 1 never finish matric; existing early-warning tools are manual, spreadsheet-based, and not scaled nationally.
-Solution: A trained early-warning model (logistic regression / random forest) that scores individual learners or schools by dropout risk using academic, behavioral, and attendance-style features, feeding a dashboard that ranks who needs help first.
-Who it's for: Not the learner directly — the user is the school/district official or NGO caseworker who acts on the flag. The learner is the beneficiary.
-Value over what exists: Replaces a static, rule-based Excel traffic light with a model that can use more features and update as new data comes in — more accurate targeting of scarce support resources.
-How it's sustained: Doesn't need to invent a funding model from scratch — positions itself as a tool that plugs into an already-funded ecosystem (DGMT/Zero Dropout Campaign, provincial education departments) rather than needing learners or schools to pay anything.
-How it scales: Pilot in one province/district with existing NGO partners → validate against real outcomes → propose integration with SA-SAMS/LURITS, the exact national system the campaign already asked DBE to build.
-What's needed to build it: access to historical enrollment/attendance/performance data (GHS, DBE SNAP, or a partner NGO's own records), and ideally a relationship with one of these existing organizations rather than starting in isolation.
+THE SEVEN THINGS TO COVER
+---------------------------------------------------------
+  the problem          stated briefly
+  the solution         what is being offered
+  who it is for        the user, and separately the beneficiary
+  value over existing  why this beats what is already there
+  how it is funded     grant, adoption, subscription, or absorbed
+  how it scales        one province to national
+  team and resources   data access, partnerships, tech
 
-"This school is in the top 10% nationally for risk of losing its Grade 8–12 pipeline before matric — and here are the three factors driving that."
 
-Problem: South Africa knows it loses roughly 40% of learners between Grade 1 and matric. What it doesn't know is where. Support gets allocated by proposal, reputation and squeaky wheel — not by measured risk. A national percentage cannot be acted on.
+FILLED IN, WITH OUR ACTUAL NUMBERS
+---------------------------------------------------------
 
-Solution: We turn that number into a ranked list. Using 19 years of open government data covering every school in all nine provinces, we score each secondary school on its risk of losing its Grade 8–12 pipeline, rank them, and show which factors drive each score — so a province can start with the 50 schools that need it most instead of guessing.
+PROBLEM
+  More than 40% of South African learners who start Grade 1 never finish
+  matric. The figure is published and undisputed. What does not exist is the
+  same figure school by school, so support cannot be aimed.
+
+SOLUTION
+  A ranked risk register for every secondary school in the country. Each
+  school gets a score, a national rank, and the three factors driving it.
+
+  THE MODEL IS A WEIGHT-OF-EVIDENCE LOGISTIC SCORECARD.
+  Not a random forest. A forest was trained and scores better - 0.7161
+  against 0.6939 - and is not what ships, because it cannot tell a school
+  why it was flagged. The gap is the measured price of interpretability and
+  is reported rather than hidden.
+
+  IT SCORES SCHOOLS, NEVER LEARNERS.
+  An earlier draft of this document said the model "scores individual
+  learners". It does not, and it never will. Learner records are protected
+  under POPIA, a hackathon team has no lawful basis to process them, and a
+  register of named at-risk children is a liability the moment it exists.
+  The smallest unit is a school.
+
+WHO IT IS FOR
+  User        provincial planners and district officials who decide where
+              teachers, funding and support staff go
+  User        organisations running retention programmes, choosing which
+              schools to place them in
+  Beneficiary the learners who get help before they leave, rather than being
+              counted afterwards
+
+VALUE OVER WHAT EXISTS
+  What exists is a spreadsheet with a red-amber-green rule, filled in by hand,
+  covering the schools somebody already chose to look at. Ours covers all
+  7,681 secondary schools, scores them against each other, and explains each
+  score. The comparison across every school is the part nobody currently has.
+
+  Measured: the worst-scored tenth loses learners at 26.8% against 1.95% in
+  the best-scored tenth. Working the top of the list is roughly twice as
+  productive as working at random.
+
+HOW IT IS FUNDED
+  Not sold to schools or families. It is a tool for the people who allocate
+  support, not a product for the people who need it.
+
+  Year 1   grant funded, R500,000-750,000, two-province pilot
+  Year 2   four provinces at R150,000 each, plus NGO tier at R25,000
+  Year 3   nine provinces, national rollout
+
+  Running cost R612,000 a year, which is R49 per school scored. Data
+  acquisition is genuinely zero - every source is public and fetched by
+  script. Break-even at four provinces.
+
+HOW IT SCALES
+  It is already national. All nine provinces are in the data from day one,
+  because the source publishes all nine. What scales is depth, not width:
+  per-grade risk once that dataset is granted, annual retraining as new
+  masterlists appear, and eventually a feed from the national learner
+  tracking systems rather than files downloaded quarterly.
+
+  The tenth customer costs almost nothing to serve, because adding a province
+  is a filter rather than a project.
+
+TEAM AND RESOURCES
+  Data        all public, already collected, rebuilt by script in minutes
+  Skills      data engineering, statistics, and someone who can talk to a
+              provincial department
+  Tech        Python, scikit-learn, Streamlit. No paid infrastructure
+  Partnership an organisation already working on dropout would bring real
+              outcome data to validate against
