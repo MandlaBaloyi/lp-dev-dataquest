@@ -11,3 +11,10 @@ pdfplumber>=0.11
 
 # Charts for the deck
 matplotlib>=3.8
+
+# Interactive EDA app
+streamlit>=1.40
+plotly>=5.20
+
+# Tests
+pytest>=8.0

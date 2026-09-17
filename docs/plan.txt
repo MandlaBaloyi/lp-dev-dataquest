@@ -25,3 +25,9 @@ Value over what exists: Replaces a static, rule-based Excel traffic light with a
 How it's sustained: Doesn't need to invent a funding model from scratch — positions itself as a tool that plugs into an already-funded ecosystem (DGMT/Zero Dropout Campaign, provincial education departments) rather than needing learners or schools to pay anything.
 How it scales: Pilot in one province/district with existing NGO partners → validate against real outcomes → propose integration with SA-SAMS/LURITS, the exact national system the campaign already asked DBE to build.
 What's needed to build it: access to historical enrollment/attendance/performance data (GHS, DBE SNAP, or a partner NGO's own records), and ideally a relationship with one of these existing organizations rather than starting in isolation.
+
+"This school is in the top 10% nationally for risk of losing its Grade 8–12 pipeline before matric — and here are the three factors driving that."
+
+Problem: South Africa knows it loses roughly 40% of learners between Grade 1 and matric. What it doesn't know is where. Support gets allocated by proposal, reputation and squeaky wheel — not by measured risk. A national percentage cannot be acted on.
+
+Solution: We turn that number into a ranked list. Using 19 years of open government data covering every school in all nine provinces, we score each secondary school on its risk of losing its Grade 8–12 pipeline, rank them, and show which factors drive each score — so a province can start with the 50 schools that need it most instead of guessing.
