@@ -15,6 +15,7 @@ import streamlit as st
 
 from app.data import BLUE, MUTED, ORANGE, model_json, out, read_json
 from src.model import evaluate
+from src.model.train import CAT, NUM
 
 model = model_json()
 metrics = model["metrics"]
@@ -170,6 +171,66 @@ st.success(
     f"{deciles[0] / max(deciles[-1], 0.001):.0f}-fold separation. The dashed line is the national "
     f"base rate of {test['event_rate']:.1%}. Working the top of this list is about twice as "
     "productive as working at random, and that is the whole product."
+)
+
+st.divider()
+st.subheader("What the machine learning is actually doing")
+
+st.markdown(
+    "Two supervised machine-learning models were trained on this problem, in "
+    "scikit-learn, and the choice between them is the most consequential decision "
+    "in the project. Both are described below rather than only the winner."
+)
+
+CANDIDATES = len(NUM) + len(CAT)
+
+ml = [
+    (":material/model_training:", "Supervised learning on a labelled outcome",
+     f"The model learns from {model['metrics']['scorecard_train']['n']:,} historical "
+     "school-years where the answer is already known — whether that school went on to "
+     "shed learners faster than its province over the following two years. Nothing is "
+     "rule-based: the weights are fitted from the data, not chosen by us."),
+    (":material/account_tree:", "Automated feature engineering",
+     f"Raw registers become {CANDIDATES} candidate variables — enrolment trajectory, volatility, "
+     "position against the school's own peak, learners per educator, what neighbouring "
+     "schools are doing, matric throughput and its rate of change. Continuous variables "
+     "are then binned automatically, with bins merged until risk moves monotonically. "
+     f"{CANDIDATES} were engineered; **{len(model['features_in_model'])} survive into the "
+     "final model** after weak and redundant ones are dropped."),
+    (":material/psychology:", "Weight of Evidence encoding",
+     "Each bin is re-expressed as the log-odds of loss it carries, which lets a linear "
+     "model capture non-linear risk and handles missing data as its own informative "
+     "category rather than a hole to be filled. Bins are fitted on training years only "
+     "and never refitted, so no test information reaches the encoding."),
+    (":material/forest:", "An ensemble benchmark it is measured against",
+     f"A calibrated random forest — {forest()['trees']} trees with isotonic probability "
+     "calibration — was trained on the identical frame and split. It is the check that "
+     "the shipped model is not leaving accuracy on the table, and it is reported below "
+     "whether it wins or loses."),
+    (":material/balance:", "Calibrated probabilities, not just a ranking",
+     "Isotonic regression maps raw scores onto real observed rates, so a school at 0.30 "
+     "loses learners about 30% of the time. A ranking tells you the order; calibration "
+     "is what lets a planner decide how far down the list their budget reaches."),
+    (":material/monitor_heart:", "Drift monitoring built in",
+     f"Population Stability Index is computed between the training years and both the "
+     f"test window ({model['psi_score_train_vs_test']:.2f}) and the live 2025 register "
+     f"({model['psi_score_train_vs_2025']:.2f}). A model that silently stops applying to "
+     "the population it scores is the standard way these systems fail in production."),
+]
+
+for row in range(0, len(ml), 2):
+    columns = st.columns(2)
+    for column, (icon, name, text) in zip(columns, ml[row:row + 2]):
+        with column.container(border=True, height="stretch"):
+            st.markdown(f"{icon} **{name}**")
+            st.caption(text)
+
+st.info(
+    """**Where the AI is deliberately restrained.** The most accurate model available is
+not the one that ships. A score that directs public money has to be explainable to the
+school it is about, to the official who acts on it, and to a treasury that funds it —
+so the shipped model gives up measurable accuracy to stay auditable, and the exact size
+of what it gives up is published below rather than buried."""
 )
 
 st.divider()

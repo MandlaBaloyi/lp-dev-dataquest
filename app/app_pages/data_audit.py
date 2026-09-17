@@ -36,6 +36,54 @@ st.markdown(
     "province that quietly becomes two survives all the way into a published finding."
 )
 
+with st.expander("Where this data comes from — every source, cited", icon=":material/link:"):
+    st.markdown(
+        "Both datasets are published openly by the **Department of Basic Education**. "
+        "No login, no licence, no NDA, and nothing here was bought, scraped from a "
+        "third party, or manually typed in. Each is fetched by a committed script, so "
+        "any figure in this app can be traced to the published file it came from."
+    )
+
+    left, right = st.columns(2)
+    with left.container(border=True, height="stretch"):
+        st.markdown(":material/table: **EMIS School Masterlists**")
+        st.caption(
+            f"Quarterly registers of every school in the country — enrolment, "
+            f"educators, quintile, fee status, phase, district, coordinates. "
+            f"**{summary['enrolment_records']:,} records**, "
+            f"{summary['schools_scanned']:,} schools, "
+            f"{summary['years_scanned']} years (2007–2025), all 9 provinces. "
+            "Built from 140 provincial spreadsheets.")
+        st.markdown(
+            "[education.gov.za › EMIS Downloads]"
+            "(https://www.education.gov.za/Programmes/EMIS/EMISDownloads.aspx)")
+        st.caption("Fetched by `src/fetch/emis_masterlists.py`")
+
+    with right.container(border=True, height="stretch"):
+        st.markdown(":material/picture_as_pdf: **NSC School Performance Reports**")
+        st.caption(
+            f"Matric results per school — candidates who wrote, achieved, the pass "
+            f"rate, and learners progressed without meeting requirements. "
+            f"**{summary['matric_records']:,} records**, "
+            f"{summary['matric_schools']:,} schools, 2008–2024. Extracted by us from "
+            "13 PDF reports; the department publishes no machine-readable version.")
+        st.markdown(
+            "[education.gov.za › Reports]"
+            "(https://www.education.gov.za/Resources/Reports.aspx)")
+        st.caption("Fetched by `src/fetch/nsc_reports.py`, parsed by `src/build/nsc_results.py`")
+
+    st.markdown(
+        "**How they join.** On the EMIS number, the national school identifier, "
+        "normalised to bare digits first because it is published both with and "
+        "without a leading zero — get that wrong and the join fails silently rather "
+        "than loudly. Matric evidence is carried **forward** only, never backward, "
+        "with an age marker so a stale figure can be discounted. Carrying it backward "
+        "would be reading the future.\n\n"
+        "Full provenance, column by column, is in `docs/DATASETS.txt` and "
+        "`docs/DATA_DICTIONARY.txt`. Reference material on every source considered — "
+        "including the ones we could not use — is in `datasets/sources/`."
+    )
+
 with st.container(horizontal=True):
     st.metric("Records audited", f"{summary['records_scanned']:,}",
               f"across {summary['datasets']} datasets · {summary['years_scanned']} years",
