@@ -1,0 +1,133 @@
+# Submission pack — copy and paste
+
+Everything the Sonke forms ask for. Fill the team profile first: nothing can be
+submitted without it.
+
+---
+
+## Team profiling form
+
+**Team Name**
+> Anomaly
+
+**Select Location**
+> Limpopo
+
+**Project Name**
+> The Missing List
+
+**Select Challenge**
+> Education
+
+**Sector of Innovation**
+> Education · Public Sector Data Quality
+
+---
+
+### Background: What inspired / motivated this project?
+
+> More than 40% of South African learners who start Grade 1 never finish
+> matric — roughly 40 of every 100 children. That figure is published every
+> year and nobody disputes it.
+>
+> What does not exist, anywhere, is the same figure school by school. Nobody
+> can say which provinces, which districts, or which schools are losing the
+> most learners. Support goes where there is information, and at school level
+> that information has never been assembled.
+>
+> When we went looking for it, we found something we did not expect. The data
+> to answer the question is already public — the Department publishes a
+> masterlist for every province every quarter — but it is quietly broken.
+> National enrolment drops by 1.44 million learners in 2017 and recovers by
+> 1.31 million in 2018. Province codes split one province into two. One
+> provincial file has its key column header truncated to a single letter,
+> silently removing three thousand schools from any analysis that reads it.
+>
+> None of these raise an error. Every one of them changes the answer. That is
+> what motivated this project: the missing list is not missing because the
+> data does not exist. It is missing because the data has never been audited.
+
+---
+
+### Overview: What is the project about?
+
+> The Missing List does two things, and the first makes the second possible.
+>
+> **It audits the data.** We built an automated anomaly detector that reads
+> South Africa's published school data and flags what is wrong with it —
+> impossible values, unstable categories, collapsing national totals, columns
+> that change name between years. It found six classes of defect across
+> 478,761 school-year records covering all nine provinces and nineteen years,
+> none of which announce themselves. Every one is reported with the number of
+> schools it affects.
+>
+> **It then builds the list.** From the repaired data we score every secondary
+> school in the country on its risk of losing learners faster than its
+> province over the next two years, rank them worst first, and show the three
+> factors driving each score. A provincial planner opens it, filters to their
+> province, and sees the fifty schools to act on first.
+>
+> The model is a scorecard rather than a black box, so every score breaks into
+> visible weights that can be explained to whoever has to justify the spend.
+> On unseen years it reaches 0.694 AUC, and the worst-scored tenth of schools
+> loses learners fourteen times as often as the best-scored tenth.
+>
+> No learner is ever named. The system uses only public, school-level data, so
+> it carries no personal information and no POPIA exposure by design.
+
+---
+
+### Technologies: List all the technologies used
+
+> **Language and analysis** — Python 3, pandas, NumPy
+>
+> **Machine learning** — scikit-learn (logistic regression scorecard, random
+> forest, gradient boosting), Weight of Evidence and Information Value
+> encoding, isotonic calibration
+>
+> **Data engineering** — openpyxl for provincial spreadsheets, pdfplumber and
+> pdftotext for extracting tables from published PDF reports, automated fetch
+> pipelines that rebuild every dataset from source
+>
+> **Application** — Streamlit, Plotly
+>
+> **Quality and reproducibility** — pytest (84 automated tests), Git and
+> GitHub, pinned dependencies, deterministic seeds
+>
+> **Data sources** — Department of Basic Education EMIS provincial
+> masterlists (234 files), NSC School Performance Reports 2012–2024 (13
+> reports), Statistics South Africa General Household Survey. All public, no
+> login required.
+
+---
+
+## Judging criteria — where each mark is earned
+
+| Criterion | Max | Where it is answered |
+|---|---|---|
+| Innovation | 10 | Anomaly detection over national education data; the register nobody has published |
+| Presentation | 10 | Live app, five pages; slide deck; plain-language reasons per school |
+| Data Inclusion | 10 | 478,761 records · 19 years · all 9 provinces · 3 independent sources |
+| System Security | 10 | No personal data by design; POPIA position; reproducible, auditable pipeline |
+| Artificial Intelligence | 5 | Calibrated scorecard and forest, validated on unseen years, 0.694 AUC |
+| Business Model | 5 | Costed operating model with figures |
+
+---
+
+## The numbers, for the deck and for questions
+
+| | |
+|---|---|
+| School-year records | 478,761 |
+| Distinct schools | 29,655 |
+| Secondary and combined schools scored | 12,443 |
+| Years covered | 19 (2007–2025) |
+| Provinces | 9 (all) |
+| Districts | 196 |
+| Matric records extracted from PDFs | 100,429 |
+| Source files processed | 234 spreadsheets + 13 PDF reports |
+| Data defects found | 6 classes |
+| Model AUC on unseen years | 0.694 |
+| Lift in worst-scored tenth | 2.20× |
+| Loss rate, worst tenth vs best tenth | 26.9% vs 1.95% |
+| Automated tests | 84 |

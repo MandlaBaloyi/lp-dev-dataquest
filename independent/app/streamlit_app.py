@@ -33,10 +33,16 @@ if "emis" not in st.session_state:
 
 page = st.navigation([
     st.Page("app_pages/overview.py", title="Overview", icon=":material/home:", default=True),
+    # The audit comes before the ranking deliberately. It is the challenge's own
+    # question - find the discrepancies - and it is also the reason anything
+    # downstream can be trusted.
+    st.Page("app_pages/data_audit.py", title="Data audit", icon=":material/rule:"),
     st.Page("app_pages/risk_list.py", title="Risk list", icon=":material/format_list_numbered:"),
     st.Page("app_pages/school.py", title="School profile", icon=":material/school:"),
     st.Page("app_pages/simulator.py", title="Score simulator", icon=":material/tune:"),
     st.Page("app_pages/method.py", title="How we built it", icon=":material/science:"),
+    st.Page("app_pages/security.py", title="Security", icon=":material/shield:"),
+    st.Page("app_pages/business.py", title="Business model", icon=":material/payments:"),
 ], position="top")
 
 page.run()

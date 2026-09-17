@@ -1,0 +1,16 @@
+detector,severity,finding,schools_affected,detail
+unstable_categories,HIGH,'status' holds 10 distinct values where 3 are possible,478761,"most common: 'OPEN', 'OPERATIONAL', 'Open', 'PENDING CLOSE', 'PENDING CLOSED', 'IN PROCESS OF CLOSING'"
+unstable_categories,HIGH,'sector' holds 6 distinct values where 2 are possible,478760,"most common: 'PUBLIC', 'INDEPENDENT', 'Public', 'ORDINARY', 'Independent', 'Independent/Private'"
+unstable_categories,HIGH,'phase' holds 21 distinct values where 6 are possible,478757,"most common: 'PRIMARY SCHOOL', 'SECONDARY SCHOOL', 'COMBINED SCHOOL', 'INTERMEDIATE SCHOOL', 'Primary School', 'Primary'"
+unstable_categories,HIGH,'urbanrural' holds 12 distinct values where 4 are possible,477079,"most common: 'RURAL', 'URBAN', 'TO BE UPDATED', 'Urban', 'Rural', 'NO RESPONSE'"
+unstable_categories,HIGH,'quintile' holds 17 distinct values where 5 are possible,465777,"most common: '1', '2', '3', 'Q1', 'Q2', 'Q3'"
+unstable_categories,HIGH,'nofee' holds 11 distinct values where 2 are possible,427016,"most common: 'YES', 'TO BE UPDATED', 'No Fee', 'NO', 'Fee Charging', 'NOT APPLICABLE'"
+collapsing_totals,HIGH,National enrolment moves +11.4% in 2018,24886,"12.81M learners reported, against 11.50M the year before"
+collapsing_totals,HIGH,National enrolment moves -11.1% in 2017,24486,"11.50M learners reported, against 12.93M the year before"
+label_churn,HIGH,"8,792 schools change their 'phase' between years",8792,a school that is combined in one year and primary in another cannot be filtered on this field alone
+impossible_values,HIGH,724 records placed at latitude or longitude zero,724,"the Atlantic Ocean, not South Africa"
+coverage_gaps,HIGH,NC reports 0 schools in 2025,579,typically 579 — the province appears to vanish
+impossible_values,MEDIUM,"27,403 records outside South Africa's latitude range",27403,expected -35.0 to -22.0
+identifier_breaks,MEDIUM,904 schools have gaps in their year history,904,"present, absent, then present again — usually renumbering, not closure"
+impossible_values,MEDIUM,781 records with over 100 learners per educator,781,either a staffing crisis or a reporting fault
+impossible_values,MEDIUM,156 records with no usable learner count,156,cannot contribute to any rate
