@@ -34,9 +34,7 @@ import glob
 import itertools
 import openpyxl
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = os.path.join(ROOT, "datasets", "raw", "emis_masterlists")
-OUT_DIR = os.path.join(ROOT, "datasets", "processed")
+from src.common.paths import EMIS_RAW as RAW, PROCESSED as OUT_DIR
 # Gzipped: the plain CSV is ~74MB, which is past the point where GitHub starts
 # complaining. pandas.read_csv reads .csv.gz directly, no extra step needed.
 OUT = os.path.join(OUT_DIR, "school_year_panel.csv.gz")

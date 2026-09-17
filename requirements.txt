@@ -1,0 +1,13 @@
+# Reading the DBE masterlists (.xlsx)
+openpyxl>=3.1
+
+# Data wrangling and modelling
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.5
+
+# Extracting tables from the NSC School Performance Report PDFs
+pdfplumber>=0.11
+
+# Charts for the deck
+matplotlib>=3.8

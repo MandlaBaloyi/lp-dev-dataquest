@@ -21,8 +21,7 @@ PAGE = "https://www.education.gov.za/Resources/Reports.aspx"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "datasets", "raw", "nsc_reports")
+from src.common.paths import NSC_RAW as OUT
 
 
 def get(url, tries=3):

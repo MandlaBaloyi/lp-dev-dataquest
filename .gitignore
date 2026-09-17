@@ -8,10 +8,6 @@
 # committed, because those are the project's own work.
 datasets/raw/
 
-# Unrelated legacy files from a different DataQuest submission (SAS credit-risk project)
-# left in this folder from before — excluded so they don't get committed here by accident.
-SAS_CODE.sas
-dataquest_dataset.csv
 
 # Python bytecode
 __pycache__/

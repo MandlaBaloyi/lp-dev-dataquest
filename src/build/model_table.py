@@ -15,9 +15,7 @@ Writes datasets/processed/model_table.csv - small enough to open directly.
 """
 import os, re, csv, gzip
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PANEL = os.path.join(ROOT, "datasets", "processed", "school_year_panel.csv.gz")
-OUT = os.path.join(ROOT, "datasets", "processed", "model_table.csv")
+from src.common.paths import SCHOOL_PANEL as PANEL, MODEL_TABLE as OUT
 
 KEEP_PHASE = ("SECONDARY", "COMBINED")
 COLUMNS = ["emis", "year", "province", "school", "phase", "district", "quintile",
