@@ -1,0 +1,79 @@
+{
+  "national_learners_2016_2017_2018_m": [
+    12.93,
+    11.5,
+    12.81
+  ],
+  "share_jump_30pct_typical": 0.037,
+  "share_jump_30pct_2017": 0.119,
+  "loss_rate_by_province": {
+    "LP": 0.167,
+    "EC": 0.157,
+    "MP": 0.147,
+    "KZN": 0.136,
+    "NW": 0.128,
+    "FS": 0.115,
+    "GP": 0.113,
+    "NC": 0.076,
+    "WC": 0.059
+  },
+  "loss_rate_by_size_quintile": [
+    0.216,
+    0.176,
+    0.141,
+    0.105,
+    0.086
+  ],
+  "loss_rate_by_vol_quintile": [
+    0.067,
+    0.102,
+    0.144,
+    0.169,
+    0.205
+  ],
+  "loss_rate_by_chg1_septile": [
+    0.193,
+    0.149,
+    0.115,
+    0.108,
+    0.106,
+    0.134,
+    0.208
+  ],
+  "labelled_rows": 99885,
+  "loss_rate_overall": 0.137,
+  "median_chg_t2_of_losers": -0.229,
+  "median_learners_lost_by_losers": 98.0,
+  "closed_or_renumbered_by_t2": 1604,
+  "schools_loss_in_3plus_years": 2239,
+  "schools_labelled": 8583,
+  "p_loss_t2_given_loss_t": 0.222,
+  "p_loss_t2_given_no_loss_t": 0.118,
+  "test_loss_rate_by_decile": [
+    0.217,
+    0.186,
+    0.163,
+    0.148,
+    0.132,
+    0.121,
+    0.099,
+    0.075,
+    0.051,
+    0.026
+  ],
+  "ranking_2025_rows": 7681,
+  "ranking_2025_tiers": {
+    "": 5074,
+    "WATCH": 1813,
+    "PRIORITY": 794
+  },
+  "ranking_2025_priority_by_province": {
+    "LP": 273,
+    "EC": 204,
+    "KZN": 179,
+    "GP": 60,
+    "MP": 55,
+    "FS": 14,
+    "NW": 9
+  }
+}

@@ -90,3 +90,7 @@ None of these raise an error. Each one silently skews what a model would learn.
 - `docs/problem.txt` — problem, solution, business model
 - `docs/plan_v1.txt` — technical plan: features, label, modelling
 - `datasets/INDEX.md` — data inventory, source by source
+- `independent/` — the second team's independent track (own cleaning, target,
+  scorecard, 2025 ranking and presentation app); start at `independent/README.md`.
+  Run the app with `python -m streamlit run independent/app/streamlit_app.py`,
+  and see `independent/DEMO.md` for the demo script
