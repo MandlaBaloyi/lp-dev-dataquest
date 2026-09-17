@@ -1,0 +1,21 @@
+feature,description,iv_train,iv_valid,band,in_model,selection_note
+log_learners,school size (learners),0.1502,0.388,medium,True,kept
+vol,enrolment volatility,0.1456,0.259,medium,True,kept
+quintile,poverty quintile,0.0997,0.3148,weak,True,kept
+chg1,enrolment change over the last year,0.0977,0.2431,weak,True,kept
+chg1_rel_prov,last-year enrolment change vs province,0.0818,0.22,weak,False,correlated 0.93 with chg1 (higher IV)
+peak_ratio,enrolment as a share of the school's own peak,0.0803,0.2277,weak,True,kept
+province,province,0.0659,0.1328,weak,True,kept
+nofee,fee status,0.0652,0.0062,weak,False,correlated 0.85 with quintile (higher IV)
+chg3,enrolment trend over three years,0.0651,0.208,weak,True,kept
+size_vs_nearby,size relative to schools within 10 km,0.0535,0.1997,weak,False,coefficient sign reversed (+0.010) once other variables present
+edu_chg1,educator change over the last year,0.0345,0.0955,weak,True,kept
+district_schools,number of FET schools in the district,0.0257,0.0851,weak,True,kept
+district_chg1,district's typical enrolment change,0.0244,0.0442,weak,True,kept
+urbanrural,urban / rural,0.0222,0.051,weak,False,coefficient sign reversed (+0.233) once other variables present
+nearby_10km,FET schools within 10 km,0.019,0.0263,not useful,False,IV 0.019 below 0.02
+ler,learners per educator,0.0129,0.1674,not useful,False,IV 0.013 below 0.02
+nearby_chg1,enrolment change at schools within 10 km,0.0118,0.0373,not useful,False,IV 0.012 below 0.02
+nearby_5km,FET schools within 5 km,0.0114,0.0135,not useful,False,IV 0.011 below 0.02
+phase,secondary / combined,0.0063,0.0299,not useful,False,IV 0.006 below 0.02
+sector,public / independent,0.0034,0.1279,not useful,False,IV 0.003 below 0.02

@@ -1,0 +1,45 @@
+"""School learner-loss early warning: the independent track's app.
+
+Run from the repository root:
+
+    python -m streamlit run independent/app/streamlit_app.py
+
+Needs the pipeline outputs (independent/outputs, independent/data). If they
+are missing, run the four pipeline stages listed in independent/README.md.
+"""
+import sys
+from pathlib import Path
+
+import streamlit as st
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from independent.src.paths import MODEL_FRAME, out  # noqa: E402
+
+st.set_page_config(page_title="Learner-loss early warning", page_icon=":material/school:",
+                   layout="wide")
+
+missing = [p for p in (out("model.json"), out("ranking_2025.csv"), MODEL_FRAME) if not Path(p).exists()]
+if missing:
+    st.error("The pipeline outputs are missing. From the repository root run:\n\n"
+             "```\npython -m independent.src.clean\npython -m independent.src.features\n"
+             "python -m independent.src.train\npython -m independent.src.charts\n```")
+    st.stop()
+
+if "emis" not in st.session_state:
+    st.session_state.emis = None
+
+page = st.navigation([
+    st.Page("app_pages/overview.py", title="Overview", icon=":material/home:", default=True),
+    st.Page("app_pages/risk_list.py", title="Risk list", icon=":material/format_list_numbered:"),
+    st.Page("app_pages/school.py", title="School profile", icon=":material/school:"),
+    st.Page("app_pages/simulator.py", title="Score simulator", icon=":material/tune:"),
+    st.Page("app_pages/method.py", title="How we built it", icon=":material/science:"),
+], position="top")
+
+page.run()
+
+st.caption("Independent track · DataQuest hackathon · Data: DBE EMIS masterlists 2007–2025 (open data). "
+           "School-level only; no learner records.")
