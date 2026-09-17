@@ -73,6 +73,23 @@ NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 # past this is two columns read as one, not a real figure.
 MAX_CANDIDATES = 2000
 
+# Quintile is a funding band from 1 to 5, or 99 for schools outside the
+# banding. Anything else means the column alignment slipped and the value
+# came from somewhere else in the row.
+QUINTILE_VALUES = {"1", "2", "3", "4", "5", "99"}
+
+MIN_YEARS_PER_ROW = 3
+
+# Percentage points. The source rounds to one decimal, so a correctly
+# aligned row agrees to well within this; a shifted one does not come close.
+PASS_RATE_TOLERANCE = 1.5
+
+# Layouts the reports actually use, widest first so that twelve numbers are
+# read as three years of four measures rather than four years of three. All
+# four are genuinely published: the 2012 edition prints three measures and no
+# progressed count, the 2021 edition prints two, and 2013 prints one.
+MEASURE_PREFERENCE = (4, 3, 2, 1)
+
 MEASURE_KEYS = {
     "no progressed": "progressed",
     "total wrote": "wrote",
@@ -115,6 +132,63 @@ def parse_schema(header_lines):
     return schema
 
 
+# Order of measures within a year, by how many a report carries. Every edition
+# that states its layout uses these, so an edition whose header cannot be read
+# is assumed to follow the same convention.
+CONVENTIONAL_ORDER = {
+    1: ["wrote"],
+    2: ["progressed", "wrote"],
+    # Three measures is wrote, achieved and pass rate - the older editions omit
+    # the progressed count, which only became a published figure later. Reading
+    # it as progressed/wrote/achieved instead silently shifts every field by one.
+    3: ["wrote", "achieved", "pass_rate"],
+    4: ["progressed", "wrote", "achieved", "pass_rate"],
+}
+
+
+def layout_for(count, schema):
+    """Work out a row's own layout from how many numbers it carries.
+
+    A single report can hold more than one layout. The 2021 edition declares
+    five years with two measures each in its header, and then prints pages with
+    three years and four measures - quintile, then progressed, wrote, achieved
+    and pass rate per year. Forcing the header's schema onto those rows maps ten
+    numbers onto fourteen and scrambles every field, which is how 14,005 records
+    ended up reporting more learners progressed into matric than sat it.
+
+    So the header is a default, not a contract. Where a row does not fit it, the
+    layout is re-derived from the row: the measure count must divide evenly into
+    a plausible number of years, and the years taken are the most recent in the
+    header's span, because these reports print the latest years.
+    """
+    years = sorted({year for _, year in schema})
+    if not years:
+        return None
+
+    measures = count - 1                      # less the quintile
+    if measures == len(schema):
+        return schema                         # the header was right
+
+    # Driven by the measure layout rather than the year count, because both
+    # divide evenly and only one is right. Twelve numbers are three years of
+    # (progressed, wrote, achieved, pass rate) - the full published layout -
+    # not four years of three measures, which is a layout no edition uses.
+    # Searching spans first picks the wrong one and silently drops pass rate.
+    #
+    # At least three years: every edition prints three or more, so a row
+    # fitting only one or two is a truncated line, and forcing a fit invents
+    # data.
+    for per_year in MEASURE_PREFERENCE:
+        if measures % per_year:
+            continue
+        span = measures // per_year
+        if not MIN_YEARS_PER_ROW <= span <= len(years):
+            continue
+        order = CONVENTIONAL_ORDER[per_year]
+        return [(measure, year) for year in years[-span:] for measure in order]
+    return None
+
+
 def parse_row(line, schema):
     """One text line into school-year records, or nothing if it is not a row."""
     if not schema:
@@ -125,14 +199,16 @@ def parse_row(line, schema):
 
     rest = match.group("rest")
     numbers = NUMBER_RE.findall(rest)
-    if len(numbers) < len(schema):
+
+    layout = layout_for(len(numbers), schema)
+    if layout is None or len(numbers) < len(layout):
         return []
 
     # Take the measures from the end. Some editions carry an extra unlabelled
     # column between the name and the quintile, and anchoring to the right
     # survives that where counting from the left does not.
-    measures = numbers[-len(schema):]
-    before = numbers[:-len(schema)]
+    measures = numbers[-len(layout):]
+    before = numbers[:-len(layout)]
     quintile = before[-1] if before else ""
 
     # The name is whatever precedes the first number that belongs to the data.
@@ -141,7 +217,7 @@ def parse_row(line, schema):
     school = re.sub(r"\s{2,}", " ", school)
 
     per_year = {}
-    for (key, year), value in zip(schema, measures):
+    for (key, year), value in zip(layout, measures):
         per_year.setdefault(year, {})[key] = value
 
     district = re.sub(r"\s{2,}", " ", match.group("lead")).strip()
@@ -156,27 +232,35 @@ def parse_row(line, schema):
             # merged cells rather than a school with more matric candidates
             # than the largest school in the country has learners.
             continue
+
+        # Where all three are present the arithmetic has to agree: the pass rate
+        # is the achieved count over the number who wrote. It is the only
+        # independent check available that the columns line up, and it catches
+        # a shifted row that every other test would pass.
+        achieved = values.get("achieved")
+        rate = values.get("pass_rate")
+        if achieved and rate and float(wrote):
+            implied = 100.0 * float(achieved) / float(wrote)
+            if abs(implied - float(rate)) > PASS_RATE_TOLERANCE:
+                continue
+
+        progressed = float(values.get("progressed") or 0)
+        if progressed > float(wrote):
+            # Impossible: a school cannot advance more learners into matric
+            # than sat it. The row is misaligned in a way the shape check did
+            # not catch, so it is dropped rather than published.
+            continue
+
         records.append({
             "emis": emis, "year": year, "district": district,
             "centre_no": match.group("centre"), "school": school,
-            "quintile": quintile,
-            "progressed": int(float(values.get("progressed") or 0)),
+            "quintile": quintile if quintile in QUINTILE_VALUES else "",
+            "progressed": int(progressed),
             "wrote": int(float(wrote)),
             "achieved": int(float(values["achieved"])) if values.get("achieved") else "",
             "pass_rate": float(values["pass_rate"]) if values.get("pass_rate") else "",
         })
     return records
-
-
-# Order of measures within a year, by how many a report carries. Every edition
-# that states its layout uses these, so an edition whose header cannot be read
-# is assumed to follow the same convention.
-CONVENTIONAL_ORDER = {
-    1: ["wrote"],
-    2: ["progressed", "wrote"],
-    3: ["progressed", "wrote", "achieved"],
-    4: ["progressed", "wrote", "achieved", "pass_rate"],
-}
 
 
 def infer_schema(lines, edition, span=5):

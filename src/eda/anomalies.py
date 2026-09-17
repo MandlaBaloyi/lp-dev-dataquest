@@ -283,3 +283,79 @@ def summary(findings):
         "low": int((findings["severity"] == "LOW").sum()),
         "detectors_triggered": int(findings["detector"].nunique()),
     }
+
+
+# --------------------------------------------------------------- matric data
+
+# The matric results are a different shape from the enrolment panel - counts of
+# exam candidates rather than a school roll - so reusing the enrolment
+# detectors on them produces findings phrased about the wrong thing. These
+# check what can actually go wrong in an extraction from published PDFs.
+
+def matric_scan(nsc):
+    """Quality checks specific to the extracted matric results."""
+    found = []
+    total = len(nsc)
+
+    wrote = _numeric(nsc["wrote"])
+    progressed = _numeric(nsc["progressed"])
+    achieved = _numeric(nsc["achieved"])
+    rate = _numeric(nsc["pass_rate"])
+
+    # Impossible by definition: a school cannot advance more learners into
+    # matric than sat the exam. It is the clearest sign a row's columns were
+    # read in the wrong order.
+    impossible = int((progressed > wrote).sum())
+    if impossible:
+        found.append(_row("matric_impossible", "HIGH",
+                          f"{impossible:,} records report more learners progressed than wrote",
+                          impossible, "columns misread - the row is dropped rather than published"))
+
+    # The one independent check available: the published pass rate must equal
+    # the achieved count over the number who wrote.
+    checkable = achieved.notna() & rate.notna() & (wrote > 0)
+    if checkable.any():
+        implied = 100.0 * achieved[checkable] / wrote[checkable]
+        disagree = int((implied - rate[checkable]).abs().gt(1.5).sum())
+        agree = int(checkable.sum()) - disagree
+        severity = "HIGH" if disagree else "LOW"
+        found.append(_row(
+            "matric_arithmetic", severity,
+            f"pass rate agrees with achieved ÷ wrote on {agree:,} of {int(checkable.sum()):,} checkable records",
+            agree,
+            "the only independent confirmation that the columns line up"
+            if not disagree else f"{disagree:,} rows disagree and are misaligned"))
+
+    bad_quintile = int((~nsc["quintile"].isin([1, 2, 3, 4, 5, 99])
+                        & nsc["quintile"].notna()).sum())
+    if bad_quintile:
+        found.append(_row("matric_impossible", "MEDIUM",
+                          f"{bad_quintile:,} records carry a quintile outside 1-5 or 99",
+                          bad_quintile, "a value read from the wrong column"))
+
+    missing = int(achieved.isna().sum())
+    if missing:
+        found.append(_row(
+            "matric_coverage", "MEDIUM",
+            f"{missing:,} records have no achievement figure ({100*missing/total:.0f}%)",
+            missing,
+            "the older report editions publish candidate counts without results"))
+
+    per_year = nsc.groupby("year").size()
+    typical = per_year.median()
+    for year, count in per_year.items():
+        if count < typical * 0.5:
+            found.append(_row(
+                "matric_coverage", "HIGH",
+                f"only {int(count):,} records extracted for {int(year)}",
+                int(count),
+                f"against a typical {int(typical):,} - that edition resists parsing"))
+
+    duplicated = nsc.groupby(["emis", "year"]).size()
+    repeated = int((duplicated > 1).sum())
+    if repeated:
+        found.append(_row("matric_duplicates", "HIGH",
+                          f"{repeated:,} school-years appear more than once",
+                          repeated, "double-counts any total built from these rows"))
+
+    return pd.DataFrame(found, columns=COLUMNS)

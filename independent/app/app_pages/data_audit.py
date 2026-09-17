@@ -23,9 +23,11 @@ table = findings()
 
 st.title("The data is broken, and nothing says so")
 st.markdown(
-    "Before a single model was trained, we ran an automated audit over every school "
-    "record South Africa publishes. It found **15 discrepancies**, eleven of them "
-    "severe enough to change a model's answer."
+    "Before a single model was trained, we ran an automated audit over **both** datasets "
+    f"this project uses — {summary['enrolment_records']:,} enrolment records published by "
+    f"the department, and {summary['matric_records']:,} matric records we extracted "
+    f"ourselves from exam report PDFs. It returns **{summary['total_findings']} findings**, "
+    f"{summary['high']} of them severe enough to change a model's answer."
 )
 st.markdown(
     "**Not one of them raises an error.** The files open, the row counts look "
@@ -36,7 +38,7 @@ st.markdown(
 
 with st.container(horizontal=True):
     st.metric("Records audited", f"{summary['records_scanned']:,}",
-              f"{summary['schools_scanned']:,} schools · {summary['years_scanned']} years",
+              f"across {summary['datasets']} datasets · {summary['years_scanned']} years",
               delta_color="off", delta_arrow="off", border=True)
     st.metric("Discrepancies found", f"{summary['total_findings']}",
               f"{summary['detectors_triggered']} of 7 detectors triggered",
@@ -76,20 +78,51 @@ st.error(
 st.divider()
 st.subheader("Every finding")
 
-severity = st.segmented_control(
-    "Severity", ["All", "HIGH", "MEDIUM"], default="All", key="sev")
+left, right = st.columns(2)
+severity = left.segmented_control(
+    "Severity", ["All", "HIGH", "MEDIUM", "LOW"], default="All", key="sev")
+dataset = right.segmented_control(
+    "Dataset", ["Both"] + sorted(table["dataset"].unique()), default="Both", key="ds")
+
 shown = table if severity == "All" else table[table.severity == severity]
+if dataset != "Both":
+    shown = shown[shown.dataset == dataset]
 
 st.dataframe(
-    shown[["severity", "detector", "finding", "schools_affected", "detail"]],
+    shown[["dataset", "severity", "detector", "finding", "schools_affected", "detail"]],
     hide_index=True, use_container_width=True,
     column_config={
+        "dataset": st.column_config.TextColumn("Dataset", width="small"),
         "severity": st.column_config.TextColumn("Severity", width="small"),
         "detector": st.column_config.TextColumn("Detector", width="medium"),
         "finding": st.column_config.TextColumn("What was found", width="large"),
         "schools_affected": st.column_config.NumberColumn("Schools", format="%d"),
         "detail": st.column_config.TextColumn("Why it matters", width="large"),
     })
+
+st.divider()
+st.subheader("We audited our own work too")
+
+st.markdown(
+    "The matric dataset is not published as a table — we extracted it from 13 PDF reports, "
+    "no two of which share a column layout. An extraction is exactly the kind of step that "
+    "can go wrong silently, so it is audited on the same terms as the department's own data."
+)
+st.markdown(
+    "**It did go wrong.** An early version mapped one report's columns onto another's layout, "
+    "which produced 14,005 records claiming more learners were advanced into matric than sat "
+    "the exam — impossible, and invisible in any row count. It also silently destroyed the "
+    "pass-rate column, which extracted at 0% and looked like a field the source simply did "
+    "not publish."
+)
+st.success(
+    "**The check that settles it.** Where a report prints the achieved count and the pass "
+    "rate, the two must agree: the rate is achieved ÷ wrote. After the fix, that arithmetic "
+    "holds on **82,979 of 82,979 checkable records — 100%**. It is the only independent "
+    "confirmation available that the columns are read in the right order, and it is the "
+    "reason pass rate could be trusted enough to enter the model, where it turned out to be "
+    "the single strongest variable."
+)
 
 st.divider()
 st.subheader("What each detector looks for")

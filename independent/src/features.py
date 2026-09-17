@@ -43,17 +43,14 @@ NUMERIC = ["log_learners", "ler", "chg1", "chg1_rel_prov", "chg3", "vol", "peak_
 # None of it is derivable from an enrolment headcount: how many learners
 # actually reached the end of school, how many were advanced without meeting
 # the requirements, and whether either is worsening.
-# Pass rate and achievement counts are deliberately absent. The report
-# editions published for these years carry only the number who wrote and the
-# number progressed - the four-measure layout with "Total Achieved" and
-# "% Achieved" appears in none of them, so pass_rate extracted at 0% across all
-# 17 years and achieved at 7.6%. Carrying an empty column would put a variable
-# in the model that can never be learned from, and it breaks the tree benchmark
-# outright. What remains is still the useful half: how large the matric cohort
-# was, and how many of it were advanced without meeting requirements.
+# Pass rate was dropped once on evidence that turned out to be corrupt. A
+# layout bug in the PDF parser had been scrambling the multi-measure editions,
+# which left pass rate extracting at 0% and achievement at 7.6% - so it looked
+# like the source simply did not publish them. With the parser fixed they come
+# through at 73% and 82%, and both are back.
 MATRIC = ["throughput", "throughput_chg1", "throughput_chg3", "throughput_vol",
           "progressed_share", "progressed_share_chg1",
-          "wrote_chg1", "wrote_chg3"]
+          "wrote_chg1", "wrote_chg3", "pass_rate", "pass_rate_chg1"]
 
 NUMERIC = NUMERIC + MATRIC + ["matric_age"]
 CATEGORICAL = ["province", "sector", "phase", "nofee", "urbanrural", "closing_flag"]

@@ -28,6 +28,15 @@ def scores():
     return pd.read_csv(out("test_scores.csv"))
 
 
+@st.cache_data
+def forest():
+    """The random forest benchmark, trained on the same frame and split."""
+    import json
+    import os
+    path = out("forest_metrics.json")
+    return json.load(open(path, encoding="utf-8")) if os.path.exists(path) else None
+
+
 st.title("The final model")
 st.markdown(
     "A **Weight of Evidence logistic scorecard** over "
@@ -147,21 +156,44 @@ st.success(
 st.divider()
 st.subheader("Interpretable model versus the benchmark")
 
-comparison = pd.DataFrame([
-    ("Scorecard (shipped)", test["auc"], test["gini"], test["ks"], "Yes — every score breaks into visible points"),
-    ("Gradient-boosted tree", tree["auc"], tree["gini"], tree["ks"], "No — no per-school explanation"),
-], columns=["Model", "AUC", "Gini", "KS", "Explains itself?"])
+rf = forest()
+rows = [("Scorecard — shipped", test["auc"], test["gini"], test["ks"],
+         "Yes — every score breaks into visible points"),
+        ("Gradient-boosted tree", tree["auc"], tree["gini"], tree["ks"],
+         "No — no per-school explanation")]
+if rf:
+    rows.append(("Random forest, calibrated", rf["auc"], rf["gini"], rf["ks"],
+                 "No — ranks well, explains nothing"))
+
+comparison = pd.DataFrame(rows, columns=["Model", "AUC", "Gini", "KS", "Explains itself?"])
 st.dataframe(comparison, hide_index=True, use_container_width=True,
              column_config={"AUC": st.column_config.NumberColumn(format="%.4f"),
                             "Gini": st.column_config.NumberColumn(format="%.4f"),
                             "KS": st.column_config.NumberColumn(format="%.4f")})
 
-st.markdown(
-    f"The tree scores **{tree['auc'] - test['auc']:+.4f} AUC** against the scorecard. That is the "
-    "price of interpretability, and it is small enough to pay. The output of this system directs "
-    "public money, and a score that cannot be explained cannot be defended by the official who "
-    "has to justify the spend."
-)
+if rf:
+    gap = rf["auc"] - test["auc"]
+    st.markdown(
+        f"The forest reaches **{rf['auc']:.4f}** against the scorecard's **{test['auc']:.4f}** — "
+        f"a gap of **{gap:+.4f}**, with a lift of **{rf['top10_lift']:.2f}×** in the worst tenth. "
+        "It is the better ranker and it is not what ships."
+    )
+    st.info(
+        "**Why the weaker model is the one delivered.** The output of this system directs "
+        "public money. An official who is told a school is high-risk will be asked why, and "
+        "\"the forest said so\" does not survive that question — it cannot be checked against "
+        "the masterlist, appealed by the school, or defended to a treasury. The scorecard gives "
+        f"up {abs(gap):.3f} AUC and returns three named reasons per school in exchange.
+
+"
+        "The forest is kept as the honest measure of what that choice costs. Reporting only the "
+        "model we shipped would hide the trade-off rather than make it."
+    )
+else:
+    st.markdown(
+        f"The tree scores **{tree['auc'] - test['auc']:+.4f} AUC** against the scorecard. That is "
+        "the price of interpretability, and it is small enough to pay."
+    )
 
 st.divider()
 st.subheader("Two mistakes we measured rather than asserted")
