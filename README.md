@@ -1,4 +1,4 @@
-# Early Warning System for School Dropout — South Africa
+# Early Warning System for School Dropout - South Africa
 
 Predicts, per school, how much of a Grade 10–12 cohort is at risk of being lost
 before matric, so districts and NGOs can direct support to the schools most
@@ -29,8 +29,7 @@ pip install -r requirements.txt
 python -m streamlit run app/Home.py
 ```
 
-The app opens at http://localhost:8501. The panel it reads is committed, so
-nothing needs downloading first.
+
 
 Note: `streamlit` is not on PATH on all machines. `python -m streamlit` always
 works and is the form used throughout.
