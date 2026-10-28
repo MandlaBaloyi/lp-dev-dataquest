@@ -12,3 +12,7 @@ datasets/raw/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Office lock files (they carry the computer user name)
+~$*
+*.tmp
